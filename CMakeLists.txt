@@ -14,4 +14,4 @@ include_directories(${pybind11_INCLUDE_DIRS})
 add_executable(energy_tester ./src/test.cpp)
 add_test(energy_test energy_tester)
 
-target_link_libraries(energy_tester gtest)
+target_link_libraries(energy_tester gtest pthread)
