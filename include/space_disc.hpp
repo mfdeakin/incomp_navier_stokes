@@ -41,7 +41,7 @@ class EnergyAssembly : public _SpaceDisc {
             (this->dy_flux(current, i, j) - this->dy_flux(current, i, j - 1)) /
             initial.dy();
         next(i, j) =
-            initial(i, j) - dt * (u_0 * x_deriv + v_0 * y_deriv -
+            initial(i, j) - dt * (u_0() * x_deriv + v_0() * y_deriv -
                                   (x2_deriv + y2_deriv) / (reynolds * prandtl));
       }
     }
