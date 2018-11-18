@@ -9,7 +9,7 @@
 #include "constants.hpp"
 
 template <int _ctrl_vols_x, int _ctrl_vols_y>
-class [[nodiscard]] Mesh : public ND_Array<real, _ctrl_vols_x, _ctrl_vols_y> {
+class[[nodiscard]] Mesh : public ND_Array<real, _ctrl_vols_x, _ctrl_vols_y> {
  public:
   static constexpr int ctrl_vols_x = _ctrl_vols_x;
   static constexpr int ctrl_vols_y = _ctrl_vols_y;
@@ -44,15 +44,14 @@ class [[nodiscard]] Mesh : public ND_Array<real, _ctrl_vols_x, _ctrl_vols_y> {
 
   [[nodiscard]] constexpr real dy() const noexcept { return _dy; }
 
-  [[nodiscard]] constexpr std::pair<int, int> cell_idx(const real x,
-                                                       const real y) const
-      noexcept {
-    return {static_cast<int>((x - x_min(0)) / dx() + 1),
-            static_cast<int>((y - y_min(0)) / dy() + 1)};
+  [[nodiscard]] constexpr std::pair<int, int> cell_idx(
+      const real x, const real y) const noexcept {
+    return {static_cast<int>((x - x_min(0)) / dx()),
+            static_cast<int>((y - y_min(0)) / dy())};
   }
 
-  [[nodiscard]] constexpr real interpolate(const real x, const real y) const
-      noexcept {
+  [[nodiscard]] constexpr real interpolate(const real x, const real y)
+      const noexcept {
     // Use bilinear interpolation to approximate the value at x, y
     assert(x >= x_min(0));
     assert(x <= x_max(ctrl_vols_x - 1));
@@ -94,14 +93,15 @@ class [[nodiscard]] Mesh : public ND_Array<real, _ctrl_vols_x, _ctrl_vols_y> {
 
   constexpr Mesh(const real x_min, const real x_max, const real y_min,
                  const real y_max) noexcept
-      : _x_min(x_min),
+      : ND_Array<real, _ctrl_vols_x, _ctrl_vols_y>(),
+        _x_min(x_min),
         _x_max(x_max),
         _y_min(y_min),
         _y_max(y_max),
         _dx((x_max - x_min) / ctrl_vols_x),
         _dy((y_max - y_min) / ctrl_vols_y) {
     for(int i = 0; i < this->extent(0); i++) {
-      for(int j = 0; j < this->extent(0); j++) {
+      for(int j = 0; j < this->extent(1); j++) {
         this->value(i, j) = 0.0;
       }
     }
