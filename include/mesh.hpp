@@ -108,7 +108,7 @@ class[[nodiscard]] Mesh : public ND_Array<real, _ctrl_vols_x, _ctrl_vols_y> {
   }
 
   constexpr Mesh(const Mesh<ctrl_vols_x, ctrl_vols_y> &src) noexcept
-      : Mesh(src.x_min, src.x_max, src.y_min, src.y_max) {}
+		: Mesh(src._x_min, src._x_max, src._y_min, src._y_max) {}
 
  protected:
   const real _x_min, _x_max;

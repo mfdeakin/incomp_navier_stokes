@@ -67,6 +67,16 @@ class [[nodiscard]] SecondOrderCentered_Part1 {
 
   [[nodiscard]] constexpr real v_0() const noexcept { return _v_0; }
 
+  [[nodiscard]] real flux_solution(const real x, const real y) const noexcept {
+    const real u_dt_dx_fi =
+        pi * u_0() * std::cos(2.0 * pi * x) * y * std::sin(pi * y);
+    const real v_dt_dy_fi =
+        pi * v_0() * x * std::cos(pi * x) * std::cos(2.0 * pi * y);
+    const real diffusion_fi = (2.0 * pi * pi / (reynolds * prandtl)) *
+                              std::cos(pi * x) * std::sin(pi * y);
+    return T_0() * (u_dt_dx_fi + v_dt_dy_fi + diffusion_fi);
+  }
+
   [[nodiscard]] real solution(const real x, const real y) const noexcept {
     return T_0() * std::cos(pi * x) * std::sin(pi * y);
   }

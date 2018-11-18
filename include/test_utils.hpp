@@ -1,6 +1,7 @@
 
 #include <cmath>
 #include <functional>
+#include <numeric>
 #include <utility>
 
 namespace TestUtils {
@@ -33,6 +34,49 @@ namespace TestUtils {
     return computed;
   }
   return std::abs((expected - computed) / expected);
+}
+
+template <typename MeshT>
+[[nodiscard]] real linf_error(MeshT &mesh,
+                            std::function<real(const MeshT &, int, int)> err) {
+  real reduced = 0.0;
+  for(auto itr = mesh.begin(); itr != mesh.end(); ++itr) {
+    const int i = itr.index(0);
+    const int j = itr.index(1);
+
+    const real diff = err(mesh, i, j);
+
+    reduced = std::max(reduced, std::abs(diff));
+  }
+  return reduced;
+}
+
+template <typename MeshT>
+[[nodiscard]] real l1_error(MeshT &mesh,
+                            std::function<real(const MeshT &, int, int)> err) {
+  real reduced = 0.0;
+  for(auto itr = mesh.begin(); itr != mesh.end(); ++itr) {
+    const int i = itr.index(0);
+    const int j = itr.index(1);
+
+    const real diff = err(mesh, i, j);
+    reduced += std::abs(diff);
+  }
+  return reduced;
+}
+
+template <typename MeshT>
+[[nodiscard]] real l2_error(MeshT &mesh,
+                            std::function<real(const MeshT &, int, int)> err) {
+  real reduced = 0.0;
+  for(auto itr = mesh.begin(); itr != mesh.end(); ++itr) {
+    const int i = itr.index(0);
+    const int j = itr.index(1);
+
+    const real diff = err(mesh, i, j);
+    reduced += (diff * diff);
+  }
+  return reduced;
 }
 
 template <typename MeshT>
