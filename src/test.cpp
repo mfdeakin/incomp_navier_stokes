@@ -199,14 +199,10 @@ TEST(part_1, flux_integral_convergence) {
   std::vector<err_tuple> errors;
   compute_mesh_errors<Mesh<10, 10> >(errors);
   real prev_errs[2][3] = {{q_nan, q_nan, q_nan}, {q_nan, q_nan, q_nan}};
-  for(err_tuple triple : errors) {
-    const int m_dim   = std::get<0>(triple);
-    const real cur[3] = {std::get<1>(triple), std::get<2>(triple),
-                         std::get<3>(triple)};
-
+  for(const auto [m_dim, cur_l1, cur_l2, cur_linf] : errors) {
     if(!std::isnan(prev_errs[1][0])) {
       auto [order, extrap] =
-          TestUtils::richardson(cur[0], prev_errs[0][0], prev_errs[1][0]);
+          TestUtils::richardson(cur_l1, prev_errs[0][0], prev_errs[1][0]);
       EXPECT_NEAR(2.0, order, 2e-1);
       printf(
           "Richardson Estimated L1 Order: % .3e; Extrapolated: % .3e; for mesh "
@@ -215,19 +211,19 @@ TEST(part_1, flux_integral_convergence) {
     }
     if(!std::isnan(prev_errs[1][1])) {
       auto [order, extrap] =
-          TestUtils::richardson(cur[1], prev_errs[0][1], prev_errs[1][1]);
+          TestUtils::richardson(cur_l2, prev_errs[0][1], prev_errs[1][1]);
       EXPECT_NEAR(2.0, order, 2e-1);
       printf(
-          "Richardson Estimated L1 Order: % .3e; Extrapolated: % .3e; for mesh "
+          "Richardson Estimated L2 Order: % .3e; Extrapolated: % .3e; for mesh "
           "%d\n",
           order, extrap, m_dim);
     }
     if(!std::isnan(prev_errs[1][2])) {
       auto [order, extrap] =
-          TestUtils::richardson(cur[2], prev_errs[0][2], prev_errs[1][2]);
+          TestUtils::richardson(cur_linf, prev_errs[0][2], prev_errs[1][2]);
       EXPECT_NEAR(2.0, order, 1e-1);
       printf(
-          "Richardson Estimated L1 Order: % .3e; Extrapolated: % .3e; for mesh "
+          "Richardson Estimated Linf Order: % .3e; Extrapolated: % .3e; for mesh "
           "%d\n",
           order, extrap, m_dim);
     }
@@ -235,11 +231,11 @@ TEST(part_1, flux_integral_convergence) {
     prev_errs[1][1] = prev_errs[0][1];
     prev_errs[1][2] = prev_errs[0][2];
 
-    prev_errs[0][0] = cur[0];
-    prev_errs[0][1] = cur[1];
-    prev_errs[0][2] = cur[2];
+    prev_errs[0][0] = cur_l1;
+    prev_errs[0][1] = cur_l2;
+    prev_errs[0][2] = cur_linf;
     printf("Errors for %d x %d mesh: % .8e,   % .8e,  % .8e\n", m_dim, m_dim,
-           cur[0], cur[1], cur[2]);
+           cur_l1, cur_l2, cur_linf);
   }
 }
 
