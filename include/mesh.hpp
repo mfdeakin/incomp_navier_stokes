@@ -9,12 +9,20 @@
 #include "constants.hpp"
 
 template <int _ctrl_vols_x, int _ctrl_vols_y>
-class[[nodiscard]] Mesh : public ND_Array<real, _ctrl_vols_x, _ctrl_vols_y> {
+class [[nodiscard]] Mesh {
  public:
   static constexpr int ctrl_vols_x = _ctrl_vols_x;
   static constexpr int ctrl_vols_y = _ctrl_vols_y;
 
   using ControlVolumes = ND_Array<real, ctrl_vols_x, ctrl_vols_y>;
+
+  [[nodiscard]] static constexpr int x_dim() noexcept {
+    return ctrl_vols_x;
+  }
+
+  [[nodiscard]] static constexpr int y_dim() noexcept {
+    return ctrl_vols_y;
+  }
 
   [[nodiscard]] constexpr real x_min(int cell_x) const noexcept {
     return _x_min + cell_x * dx();
@@ -50,7 +58,52 @@ class[[nodiscard]] Mesh : public ND_Array<real, _ctrl_vols_x, _ctrl_vols_y> {
             static_cast<int>((y - y_min(0)) / dy())};
   }
 
-  [[nodiscard]] constexpr real interpolate(const real x, const real y)
+  [[nodiscard]] constexpr const real &Temp(const int i, const int j)
+      const noexcept {
+    return _temp(i, j);
+  }
+
+  [[nodiscard]] constexpr real &Temp(const int i, const int j) noexcept {
+    return _temp(i, j);
+  }
+
+  [[nodiscard]] constexpr const ControlVolumes &Temp() const noexcept {
+    return _temp;
+  }
+
+  [[nodiscard]] constexpr ControlVolumes &Temp() noexcept { return _temp; }
+
+  [[nodiscard]] constexpr const real &u_vel(const int i, const int j)
+      const noexcept {
+    return _u_vel(i, j);
+  }
+
+  [[nodiscard]] constexpr real &u_vel(const int i, const int j) noexcept {
+    return _u_vel(i, j);
+  }
+
+  [[nodiscard]] constexpr const ControlVolumes &u_vel() const noexcept {
+    return _u_vel;
+  }
+
+  [[nodiscard]] constexpr ControlVolumes &u_vel() noexcept { return _u_vel; }
+
+  [[nodiscard]] constexpr const real &v_vel(const int i, const int j)
+      const noexcept {
+    return _v_vel(i, j);
+  }
+
+  [[nodiscard]] constexpr real &v_vel(const int i, const int j) noexcept {
+    return _v_vel(i, j);
+  }
+
+  [[nodiscard]] constexpr const ControlVolumes &v_vel() const noexcept {
+    return _v_vel;
+  }
+
+  [[nodiscard]] constexpr ControlVolumes &v_vel() noexcept { return _v_vel; }
+
+  [[nodiscard]] constexpr real interpolate_T(const real x, const real y)
       const noexcept {
     // Use bilinear interpolation to approximate the value at x, y
     assert(x >= x_min(0));
@@ -84,36 +137,34 @@ class[[nodiscard]] Mesh : public ND_Array<real, _ctrl_vols_x, _ctrl_vols_y> {
     const real x_weight = (x - x_min(right)) / dx() * 2.0;
     const real y_weight = (y - y_min(above)) / dy() * 2.0;
 
-    return x_weight * y_weight * this->value(right, above) +
-           (1.0 - x_weight) * y_weight * this->value(right - 1.0, above) +
-           x_weight * (1.0 - y_weight) * this->value(right, above - 1) +
-           (1.0 - x_weight) * (1.0 - y_weight) *
-               this->value(right - 1, above - 1);
+    return x_weight * y_weight * _temp(right, above) +
+           (1.0 - x_weight) * y_weight * _temp(right - 1, above) +
+           x_weight * (1.0 - y_weight) * _temp(right, above - 1) +
+           (1.0 - x_weight) * (1.0 - y_weight) * _temp(right - 1, above - 1);
   }
 
   constexpr Mesh(const real x_min, const real x_max, const real y_min,
                  const real y_max) noexcept
-      : ND_Array<real, _ctrl_vols_x, _ctrl_vols_y>(),
-        _x_min(x_min),
+      : _x_min(x_min),
         _x_max(x_max),
         _y_min(y_min),
         _y_max(y_max),
         _dx((x_max - x_min) / ctrl_vols_x),
-        _dy((y_max - y_min) / ctrl_vols_y) {
-    for(int i = 0; i < this->extent(0); i++) {
-      for(int j = 0; j < this->extent(1); j++) {
-        this->value(i, j) = 0.0;
-      }
-    }
-  }
+        _dy((y_max - y_min) / ctrl_vols_y),
+        _temp(),
+        _u_vel(),
+        _v_vel() {}
 
   constexpr Mesh(const Mesh<ctrl_vols_x, ctrl_vols_y> &src) noexcept
-		: Mesh(src._x_min, src._x_max, src._y_min, src._y_max) {}
+      : Mesh(src._x_min, src._x_max, src._y_min, src._y_max) {}
 
  protected:
   const real _x_min, _x_max;
   const real _y_min, _y_max;
   const real _dx, _dy;
+
+  ControlVolumes _temp;
+  ControlVolumes _u_vel, _v_vel;
 };
 
 #endif  // _MESH_HPP_

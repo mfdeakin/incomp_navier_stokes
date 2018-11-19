@@ -37,10 +37,10 @@ namespace TestUtils {
 }
 
 template <typename MeshT>
-[[nodiscard]] real linf_error(MeshT &mesh,
-                            std::function<real(const MeshT &, int, int)> err) {
+[[nodiscard]] real linf_error(
+    MeshT &mesh, std::function<real(const MeshT &, int, int)> err) {
   real reduced = 0.0;
-  for(auto itr = mesh.begin(); itr != mesh.end(); ++itr) {
+  for(auto itr = mesh.Temp().begin(); itr != mesh.Temp().end(); ++itr) {
     const int i = itr.index(0);
     const int j = itr.index(1);
 
@@ -55,7 +55,7 @@ template <typename MeshT>
 [[nodiscard]] real l1_error(MeshT &mesh,
                             std::function<real(const MeshT &, int, int)> err) {
   real reduced = 0.0;
-  for(auto itr = mesh.begin(); itr != mesh.end(); ++itr) {
+  for(auto itr = mesh.Temp().begin(); itr != mesh.Temp().end(); ++itr) {
     const int i = itr.index(0);
     const int j = itr.index(1);
 
@@ -69,7 +69,7 @@ template <typename MeshT>
 [[nodiscard]] real l2_error(MeshT &mesh,
                             std::function<real(const MeshT &, int, int)> err) {
   real reduced = 0.0;
-  for(auto itr = mesh.begin(); itr != mesh.end(); ++itr) {
+  for(auto itr = mesh.Temp().begin(); itr != mesh.Temp().end(); ++itr) {
     const int i = itr.index(0);
     const int j = itr.index(1);
 
@@ -80,13 +80,19 @@ template <typename MeshT>
 }
 
 template <typename MeshT>
-void fill_mesh(MeshT &mesh, const std::function<real(real, real)> &val) {
-  for(int i = 0; i < mesh.extent(0); i++) {
-    for(int j = 0; j < mesh.extent(1); j++) {
+void fill_mesh(
+    MeshT &mesh,
+    const std::function<std::tuple<real, real, real>(real, real)> &val) {
+  for(int i = 0; i < mesh.x_dim(); i++) {
+    for(int j = 0; j < mesh.y_dim(); j++) {
       const real x = mesh.x_median(i);
       const real y = mesh.y_median(j);
 
-      mesh(i, j) = val(x, y);
+      const auto [T, u, v] = val(x, y);
+
+      mesh.Temp(i, j)  = T;
+      mesh.u_vel(i, j) = u;
+      mesh.v_vel(i, j) = v;
     }
   }
 }
