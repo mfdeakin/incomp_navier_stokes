@@ -9,7 +9,7 @@
 // Use the curiously repeated template parameter to swap out the order of the
 // discretization in our assembly
 template <typename _SpaceDisc>
-class[[nodiscard]] EnergyAssembly : public _SpaceDisc {
+class [[nodiscard]] EnergyAssembly : public _SpaceDisc {
  public:
   // u = u_0 y \sin(\pi x)
   // v = v_0 x \cos(\pi y)
@@ -105,6 +105,21 @@ class [[nodiscard]] SecondOrderCentered_Part1 {
     }
   }
 
+  // Uses the finite difference (FD) approximations to the velocity derivatives
+  // to approximate the source term
+  template <typename MeshT>
+  [[nodiscard]] constexpr real source_fd(const MeshT &mesh, const int i,
+                                         const int j) const noexcept {
+    const real u_dx = du_dx_fd(mesh, i, j);
+    const real v_dy = dv_dy_fd(mesh, i, j);
+    const real u_dy = du_dy_fd(mesh, i, j);
+    const real v_dx = dv_dx_fd(mesh, i, j);
+
+    const real cross_term = u_dy + v_dx;
+    return eckert / reynolds *
+           (2.0 * (u_dx * u_dx + v_dy * v_dy) + cross_term * cross_term);
+  }
+
   // Centered FV approximation to dT/dy_{i, j+1/2}
   template <typename MeshT>
   [[nodiscard]] constexpr real dy_flux(const MeshT &mesh, const int i,
@@ -128,14 +143,14 @@ class [[nodiscard]] SecondOrderCentered_Part1 {
       const real x_left = mesh.x_median(i - 1);
       const real y      = mesh.y_median(j);
       // Use our exact solution to u outside of the boundaries
-      return (mesh.u(i + 1, j) - u(x_left, y)) / (2.0 * mesh.dx());
+      return (mesh.u_vel(i + 1, j) - u(x_left, y)) / (2.0 * mesh.dx());
     } else if(i == mesh.x_dim() - 1) {
       const real x_right = mesh.x_median(i + 1);
       const real y       = mesh.y_median(j);
       // Use our exact solution to u outside of the boundaries
-      return (u(x_right, y) - mesh.u(i - 1, j)) / (2.0 * mesh.dx());
+      return (u(x_right, y) - mesh.u_vel(i - 1, j)) / (2.0 * mesh.dx());
     } else {
-      return (mesh.u(i + 1, j) - mesh.u(i - 1, j)) / (2.0 * mesh.dx());
+      return (mesh.u_vel(i + 1, j) - mesh.u_vel(i - 1, j)) / (2.0 * mesh.dx());
     }
   }
 
@@ -147,14 +162,14 @@ class [[nodiscard]] SecondOrderCentered_Part1 {
       const real x       = mesh.x_median(i);
       const real y_below = mesh.y_median(j - 1);
       // Use our exact solution to u outside of the boundaries
-      return (mesh.u(i, j + 1) - u(x, y_below)) / (2.0 * mesh.dy());
+      return (mesh.u_vel(i, j + 1) - u(x, y_below)) / (2.0 * mesh.dy());
     } else if(j == mesh.y_dim() - 1) {
       const real x       = mesh.x_median(i);
       const real y_above = mesh.y_median(j + 1);
       // Use our exact solution to u outside of the boundaries
-      return (u(x, y_above) - mesh.u(i, j - 1)) / (2.0 * mesh.dy());
+      return (u(x, y_above) - mesh.u_vel(i, j - 1)) / (2.0 * mesh.dy());
     } else {
-      return (mesh.u(i, j + 1) - mesh.u(i, j - 1)) / (2.0 * mesh.dy());
+      return (mesh.u_vel(i, j + 1) - mesh.u_vel(i, j - 1)) / (2.0 * mesh.dy());
     }
   }
 
@@ -166,14 +181,14 @@ class [[nodiscard]] SecondOrderCentered_Part1 {
       const real x_left = mesh.x_median(i - 1);
       const real y      = mesh.y_median(j);
       // Use our exact solution to u outside of the boundaries
-      return (mesh.v(i + 1, j) - v(x_left, y)) / (2.0 * mesh.dx());
+      return (mesh.v_vel(i + 1, j) - v(x_left, y)) / (2.0 * mesh.dx());
     } else if(i == mesh.x_dim() - 1) {
       const real x_right = mesh.x_median(i + 1);
       const real y       = mesh.y_median(j);
       // Use our exact solution to u outside of the boundaries
-      return (v(x_right, y) - mesh.v(i - 1, j)) / (2.0 * mesh.dx());
+      return (v(x_right, y) - mesh.v_vel(i - 1, j)) / (2.0 * mesh.dx());
     } else {
-      return (mesh.v(i + 1, j) - mesh.v(i - 1, j)) / (2.0 * mesh.dx());
+      return (mesh.v_vel(i + 1, j) - mesh.v_vel(i - 1, j)) / (2.0 * mesh.dx());
     }
   }
 
@@ -185,28 +200,15 @@ class [[nodiscard]] SecondOrderCentered_Part1 {
       const real x       = mesh.x_median(i);
       const real y_below = mesh.y_median(j - 1);
       // Use our exact solution to u outside of the boundaries
-      return (mesh.v(i, j + 1) - v(x, y_below)) / (2.0 * mesh.dy());
+      return (mesh.v_vel(i, j + 1) - v(x, y_below)) / (2.0 * mesh.dy());
     } else if(j == mesh.y_dim() - 1) {
       const real x       = mesh.x_median(i);
       const real y_above = mesh.y_median(j + 1);
       // Use our exact solution to u outside of the boundaries
-      return (v(x, y_above) - mesh.v(i, j - 1)) / (2.0 * mesh.dy());
+      return (v(x, y_above) - mesh.v_vel(i, j - 1)) / (2.0 * mesh.dy());
     } else {
-      return (mesh.v(i, j + 1) - mesh.v(i, j - 1)) / (2.0 * mesh.dy());
+      return (mesh.v_vel(i, j + 1) - mesh.v_vel(i, j - 1)) / (2.0 * mesh.dy());
     }
-  }
-
-  template <typename MeshT>
-  [[nodiscard]] constexpr real source_fd(const MeshT &mesh, const int i,
-                                         const int j) const noexcept {
-    const real u_dx = du_dx_fd(mesh, i, j);
-    const real v_dy = dv_dy_fd(mesh, i, j);
-    const real u_dy = du_dy_fd(mesh, i, j);
-    const real v_dx = dv_dx_fd(mesh, i, j);
-
-    const real cross_term = u_dy + v_dx;
-    return eckert / reynolds *
-           (2.0 * (u_dx * u_dx + v_dy * v_dy) + cross_term * cross_term);
   }
 
   [[nodiscard]] static constexpr real x_min() noexcept { return 0.0; }

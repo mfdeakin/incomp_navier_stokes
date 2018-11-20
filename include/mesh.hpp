@@ -16,13 +16,9 @@ class [[nodiscard]] Mesh {
 
   using ControlVolumes = ND_Array<real, ctrl_vols_x, ctrl_vols_y>;
 
-  [[nodiscard]] static constexpr int x_dim() noexcept {
-    return ctrl_vols_x;
-  }
+  [[nodiscard]] static constexpr int x_dim() noexcept { return ctrl_vols_x; }
 
-  [[nodiscard]] static constexpr int y_dim() noexcept {
-    return ctrl_vols_y;
-  }
+  [[nodiscard]] static constexpr int y_dim() noexcept { return ctrl_vols_y; }
 
   [[nodiscard]] constexpr real x_min(int cell_x) const noexcept {
     return _x_min + cell_x * dx();
@@ -105,6 +101,37 @@ class [[nodiscard]] Mesh {
 
   [[nodiscard]] constexpr real interpolate_T(const real x, const real y)
       const noexcept {
+    return interpolate_internal(_temp, x, y);
+  }
+
+  [[nodiscard]] constexpr real interpolate_u(const real x, const real y)
+      const noexcept {
+    return interpolate_internal(_u_vel, x, y);
+  }
+
+  [[nodiscard]] constexpr real interpolate_v(const real x, const real y)
+      const noexcept {
+    return interpolate_internal(_v_vel, x, y);
+  }
+
+  constexpr Mesh(const real x_min, const real x_max, const real y_min,
+                 const real y_max) noexcept
+      : _x_min(x_min),
+        _x_max(x_max),
+        _y_min(y_min),
+        _y_max(y_max),
+        _dx((x_max - x_min) / ctrl_vols_x),
+        _dy((y_max - y_min) / ctrl_vols_y),
+        _temp(),
+        _u_vel(),
+        _v_vel() {}
+
+  constexpr Mesh(const Mesh<ctrl_vols_x, ctrl_vols_y> &src) noexcept
+      : Mesh(src._x_min, src._x_max, src._y_min, src._y_max) {}
+
+ protected:
+  [[nodiscard]] constexpr real interpolate_internal(
+      const ControlVolumes &q, const real x, const real y) const noexcept {
     // Use bilinear interpolation to approximate the value at x, y
     assert(x >= x_min(0));
     assert(x <= x_max(ctrl_vols_x - 1));
@@ -137,28 +164,12 @@ class [[nodiscard]] Mesh {
     const real x_weight = (x - x_min(right)) / dx() * 2.0;
     const real y_weight = (y - y_min(above)) / dy() * 2.0;
 
-    return x_weight * y_weight * _temp(right, above) +
-           (1.0 - x_weight) * y_weight * _temp(right - 1, above) +
-           x_weight * (1.0 - y_weight) * _temp(right, above - 1) +
-           (1.0 - x_weight) * (1.0 - y_weight) * _temp(right - 1, above - 1);
+    return x_weight * y_weight * q(right, above) +
+           (1.0 - x_weight) * y_weight * q(right - 1, above) +
+           x_weight * (1.0 - y_weight) * q(right, above - 1) +
+           (1.0 - x_weight) * (1.0 - y_weight) * q(right - 1, above - 1);
   }
 
-  constexpr Mesh(const real x_min, const real x_max, const real y_min,
-                 const real y_max) noexcept
-      : _x_min(x_min),
-        _x_max(x_max),
-        _y_min(y_min),
-        _y_max(y_max),
-        _dx((x_max - x_min) / ctrl_vols_x),
-        _dy((y_max - y_min) / ctrl_vols_y),
-        _temp(),
-        _u_vel(),
-        _v_vel() {}
-
-  constexpr Mesh(const Mesh<ctrl_vols_x, ctrl_vols_y> &src) noexcept
-      : Mesh(src._x_min, src._x_max, src._y_min, src._y_max) {}
-
- protected:
   const real _x_min, _x_max;
   const real _y_min, _y_max;
   const real _dx, _dy;
