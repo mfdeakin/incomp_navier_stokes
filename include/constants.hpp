@@ -6,7 +6,7 @@
 
 using real = double;
 
-constexpr real pi = 3.1415926535897932;
+constexpr real pi = 3.1415926535897932384626433832795;
 
 constexpr real reynolds = 50.0;
 constexpr real prandtl  = 0.7;

@@ -10,140 +10,144 @@
 
 using rngAlg = std::mt19937_64;
 
-// TEST(utility, fill_mesh) {
-//   constexpr int ctrl_vols_x = 128, ctrl_vols_y = 128;
-//   constexpr real min_x = 0.0, min_y = 0.0;
-//   constexpr real max_x = 0.1, max_y = 0.1;
-//   using MeshT = Mesh<ctrl_vols_x, ctrl_vols_y>;
-//   std::unique_ptr<MeshT> mesh =
-//       std::make_unique<MeshT>(min_x, max_x, min_y, max_y);
-//   EnergyAssembly<SecondOrderCentered_Part1> space_disc(1.0, pi, 1.0 / pi);
-//   TestUtils::fill_mesh(*mesh, space_disc.solution_tuple());
+TEST(utility, fill_mesh) {
+  constexpr int ctrl_vols_x = 128, ctrl_vols_y = 128;
+  constexpr real min_x = 0.0, min_y = 0.0;
+  constexpr real max_x = 0.1, max_y = 0.1;
+  using MeshT = Mesh<ctrl_vols_x, ctrl_vols_y>;
+  std::unique_ptr<MeshT> mesh =
+      std::make_unique<MeshT>(min_x, max_x, min_y, max_y);
+  EnergyAssembly<SecondOrderCentered_Part1> space_disc(1.0, pi, 1.0 / pi);
+  TestUtils::fill_mesh(*mesh, space_disc.solution_tuple());
 
-//   for(int i = 0; i < mesh->x_dim(); i++) {
-//     for(int j = 0; j < mesh->y_dim(); j++) {
-//       const real x = mesh->x_median(i);
-//       const real y = mesh->y_median(j);
-//       EXPECT_EQ(mesh->Temp(i, j), space_disc.solution(x, y));
-//       EXPECT_EQ(mesh->u_vel(i, j), space_disc.u(x, y));
-//       EXPECT_EQ(mesh->v_vel(i, j), space_disc.v(x, y));
-//     }
-//   }
-// }
+  for(int i = 0; i < mesh->x_dim(); i++) {
+    for(int j = 0; j < mesh->y_dim(); j++) {
+      const real x = mesh->x_median(i);
+      const real y = mesh->y_median(j);
+      EXPECT_EQ(mesh->Temp(i, j), space_disc.solution(x, y));
+      EXPECT_EQ(mesh->u_vel(i, j), space_disc.u(x, y));
+      EXPECT_EQ(mesh->v_vel(i, j), space_disc.v(x, y));
+    }
+  }
+}
 
-// // Verifies that the boundary flux calculations for x, y, dx, and dy are
-// correct
-// // Uses the isotropic test function T = x * sin(pi * x) + y * sin(pi * y)
-// // with a constant velocity field
-// TEST(part_1, fluxes_calc_1) {
-//   constexpr real max_err    = 1e-6;
-//   constexpr int ctrl_vols_x = 128, ctrl_vols_y = 128;
-//   constexpr real min_x = 0.0, min_y = 0.0;
-//   constexpr real max_x = 0.1, max_y = 0.1;
-//   using MeshT = Mesh<ctrl_vols_x, ctrl_vols_y>;
-//   std::unique_ptr<MeshT> mesh =
-//       std::make_unique<MeshT>(min_x, max_x, min_y, max_y);
-//   EnergyAssembly<SecondOrderCentered_Part1> space_disc(q_nan, q_nan, q_nan);
+// Verifies that the boundary flux calculations for x, y, dx, and dy are correct
+// Uses the isotropic test function T = x * sin(pi * x) + y * sin(pi * y)
+// with a constant velocity field
+TEST(part_1, fluxes_calc_1) {
+  constexpr real max_err    = 1e-6;
+  constexpr int ctrl_vols_x = 128, ctrl_vols_y = 128;
+  constexpr real min_x = 0.0, min_y = 0.0;
+  constexpr real max_x = 0.1, max_y = 0.1;
+  using MeshT = Mesh<ctrl_vols_x, ctrl_vols_y>;
+  std::unique_ptr<MeshT> mesh =
+      std::make_unique<MeshT>(min_x, max_x, min_y, max_y);
+  EnergyAssembly<SecondOrderCentered_Part1> space_disc(q_nan, q_nan, q_nan);
 
-//   auto sol = [](const real x, const real y) {
-//     return std::tuple<real, real, real>(
-//         (x * std::sin(pi * x)) + (y * std::sin(pi * y)), 1.0, 1.0);
-//   };
+  auto sol = [](const real x, const real y) {
+    return std::tuple<real, real, real>(
+        (x * std::sin(pi * x)) + (y * std::sin(pi * y)), 1.0, 1.0);
+  };
 
-//   auto sol_dx = [](const real x, const real y) {
-//     return (x * pi * std::cos(pi * x) + std::sin(pi * x));
-//   };
+  auto sol_dx = [](const real x, const real y) {
+    return (x * pi * std::cos(pi * x) + std::sin(pi * x));
+  };
 
-//   auto sol_dy = [=](const real x, const real y) { return sol_dx(y, x); };
+  auto sol_dy = [=](const real x, const real y) { return sol_dx(y, x); };
 
-//   TestUtils::fill_mesh(*mesh, sol);
+  TestUtils::fill_mesh(*mesh, sol);
 
-//   // The flux computation assumes the boundary value,
-//   // so skip the last value which can't be computed from the mesh
-//   for(int i = 0; i < ctrl_vols_x - 1; i++) {
-//     for(int j = 0; j < ctrl_vols_y - 1; j++) {
-//       const real x = mesh->x_median(i);
-//       const real y = mesh->y_median(j);
+  // The flux computation assumes the boundary value,
+  // so skip the last value which can't be computed from the mesh
+  for(int i = 0; i < ctrl_vols_x - 1; i++) {
+    for(int j = 0; j < ctrl_vols_y - 1; j++) {
+      const real x = mesh->x_median(i);
+      const real y = mesh->y_median(j);
 
-//       const real x_flux = std::get<0>(sol(mesh->x_max(i), y));
-//       const real y_flux = std::get<0>(sol(x, mesh->y_max(j)));
+      const real x_flux = std::get<0>(sol(mesh->x_max(i), y));
+      const real y_flux = std::get<0>(sol(x, mesh->y_max(j)));
 
-//       EXPECT_NEAR(x_flux, space_disc.uT_x_flux(*mesh, i, j), max_err);
-//       EXPECT_NEAR(y_flux, space_disc.vT_y_flux(*mesh, i, j), max_err);
+      EXPECT_NEAR(x_flux, space_disc.uT_x_flux(*mesh, i, j), max_err);
+      EXPECT_NEAR(y_flux, space_disc.vT_y_flux(*mesh, i, j), max_err);
 
-//       const real dx_flux = sol_dx(mesh->x_max(i), y);
-//       const real dy_flux = sol_dy(x, mesh->y_max(j));
+      const real dx_flux = sol_dx(mesh->x_max(i), y);
+      const real dy_flux = sol_dy(x, mesh->y_max(j));
 
-//       EXPECT_NEAR(dx_flux, space_disc.dx_flux(*mesh, i, j), max_err);
-//       EXPECT_NEAR(dy_flux, space_disc.dy_flux(*mesh, i, j), max_err);
-//     }
-//   }
-// }
+      EXPECT_NEAR(dx_flux, space_disc.dx_flux(*mesh, i, j), max_err);
+      EXPECT_NEAR(dy_flux, space_disc.dy_flux(*mesh, i, j), max_err);
+    }
+  }
+}
 
-// // Verifies that the boundary flux calculations for x, y, dx, and dy are
-// correct
-// // Uses the solution for part 1
-// TEST(part_1, fluxes_calc_2) {
-//   constexpr real max_err    = 1e-6;
-//   constexpr int ctrl_vols_x = 2560, ctrl_vols_y = 2560;
-//   constexpr real min_x = 0.0, min_y = 0.0;
-//   constexpr real max_x = 1.0, max_y = 1.0;
-//   using MeshT = Mesh<ctrl_vols_x, ctrl_vols_y>;
-//   std::unique_ptr<MeshT> mesh =
-//       std::make_unique<MeshT>(min_x, max_x, min_y, max_y);
-//   EnergyAssembly<SecondOrderCentered_Part1> space_disc(1.0, pi, 1.0 / pi);
+// Verifies that the boundary flux calculations for x, y, dx, and dy are correct
+// Uses the solution for part 1
+TEST(part_1, fluxes_calc_2) {
+  constexpr real max_err    = 1e-6;
+  constexpr int ctrl_vols_x = 2500, ctrl_vols_y = 2500;
+  constexpr real min_x = 0.0, min_y = 0.0;
+  constexpr real max_x = 1.0, max_y = 1.0;
+  using MeshT = Mesh<ctrl_vols_x, ctrl_vols_y>;
+  std::unique_ptr<MeshT> mesh =
+      std::make_unique<MeshT>(min_x, max_x, min_y, max_y);
+  EnergyAssembly<SecondOrderCentered_Part1> space_disc(1.0, pi, 1.0 / pi);
 
-//   TestUtils::fill_mesh(*mesh, space_disc.solution_tuple());
+  TestUtils::fill_mesh(*mesh, space_disc.solution_tuple());
 
-//   // Start at negative 1 to ensure the boundaries are implemented correctly
-//   for(int i = -1; i < ctrl_vols_x; i++) {
-//     for(int j = -1; j < ctrl_vols_y; j++) {
-//       const real x = mesh->x_median(i);
-//       const real y = mesh->y_median(j);
+  // Start at negative 1 to ensure the boundaries are implemented correctly
+  for(int i = -1; i < ctrl_vols_x; i++) {
+    for(int j = -1; j < ctrl_vols_y; j++) {
+      const real x = mesh->x_median(i);
+      const real y = mesh->y_median(j);
 
-//       // There isn't a well defined value when the coordinate of the
-//       dimension
-//       // the flux isn't being computed for is outside of the mesh
-//       if(j != -1) {
-//         const real x_max = mesh->x_max(i);
-//         EXPECT_NEAR(space_disc.solution(x_max, y) * space_disc.u(x_max, y),
-//                     space_disc.uT_x_flux(*mesh, i, j), max_err);
-//         EXPECT_NEAR(space_disc.solution_dx(x_max, y),
-//                     space_disc.dx_flux(*mesh, i, j), max_err);
-//       }
-//       if(i != -1) {
-//         const real y_max = mesh->y_max(j);
-//         EXPECT_NEAR(space_disc.solution(x, y_max) * space_disc.v(x, y_max),
-//                     space_disc.vT_y_flux(*mesh, i, j), max_err);
-//         EXPECT_NEAR(space_disc.solution_dy(x, y_max),
-//                     space_disc.dy_flux(*mesh, i, j), max_err);
-//       }
-//     }
-//   }
-// }
+      // There isn't a well defined value when the coordinate of the dimension
+      // the flux isn't being computed for is outside of the mesh
+      if(j != -1) {
+        const real x_max = mesh->x_max(i);
+        EXPECT_NEAR(space_disc.solution(x_max, y) * space_disc.u(x_max, y),
+                    space_disc.uT_x_flux(*mesh, i, j), max_err);
+        EXPECT_NEAR(space_disc.solution_dx(x_max, y),
+                    space_disc.dx_flux(*mesh, i, j), max_err);
+        // Sanity check for the derivative solution implementation
+        EXPECT_NEAR((space_disc.solution(x + mesh->dx(), y) -
+                     space_disc.solution(x, y)) /
+                        mesh->dx(),
+                    space_disc.dx_flux(*mesh, i, j), max_err);
+      }
+      if(i != -1) {
+        const real y_max = mesh->y_max(j);
+        EXPECT_NEAR(space_disc.solution(x, y_max) * space_disc.v(x, y_max),
+                    space_disc.vT_y_flux(*mesh, i, j), max_err);
+        EXPECT_NEAR(space_disc.solution_dy(x, y_max),
+                    space_disc.dy_flux(*mesh, i, j), max_err);
+        // Sanity check for the derivative solution implementation
+        EXPECT_NEAR((space_disc.solution(x, y + mesh->dy()) -
+                     space_disc.solution(x, y)) /
+                        mesh->dy(),
+                    space_disc.dy_flux(*mesh, i, j), max_err);
+      }
+    }
+  }
+}
 
 // Use the same function as in fluxes_calc_1 to verify the flux integral is
 // correct
 TEST(part_1, flux_integral_2) {
   constexpr int ctrl_vols_x = 2560, ctrl_vols_y = 2560;
-  constexpr real min_x = 0.0, min_y = 0.0;
-  constexpr real max_x = 1.0, max_y = 1.0;
 
   using MeshT = Mesh<ctrl_vols_x, ctrl_vols_y>;
-  std::unique_ptr<MeshT> mesh =
-      std::make_unique<MeshT>(min_x, max_x, min_y, max_y);
-  EnergyAssembly<SecondOrderCentered_Part1> space_disc_diffuse(1.0, 0.0, 0.0,
-                                                               1.0);
-  EnergyAssembly<SecondOrderCentered_Part1> space_disc_u(1.0, 1.0, 0.0, 0.0);
-  EnergyAssembly<SecondOrderCentered_Part1> space_disc_v(1.0, 0.0, 1.0, 0.0);
   EnergyAssembly<SecondOrderCentered_Part1> space_disc(1.0, 1.0, 1.0);
+  std::unique_ptr<MeshT> mesh =
+      std::make_unique<MeshT>(space_disc.x_min(), space_disc.x_max(),
+                              space_disc.y_min(), space_disc.y_max());
 
   TestUtils::fill_mesh(*mesh, [=](const real x, const real y) {
     return std::tuple<real, real, real>(space_disc.solution(x, y), 1.0, 1.0);
   });
 
-  for(int i = 0; i < ctrl_vols_x - 2; i++) {
-    for(int j = 0; j < ctrl_vols_y - 2; j++) {
+  for(int i = 0; i < ctrl_vols_x - 1; i++) {
+    // On the y boundaries, dT/dy has catastrophic cancellation problems,
+    // so ignore them and just trust our flux calculation tests
+    for(int j = 1; j < ctrl_vols_y - 2; j++) {
       const real x     = mesh->x_median(i);
       const real y     = mesh->y_median(j);
       const real x_min = mesh->x_min(i);
@@ -157,30 +161,35 @@ TEST(part_1, flux_integral_2) {
 
       EXPECT_NEAR(d2t_dx2, space_disc.solution_dx2(x, y), 5e-6);
 
+      const real x2_deriv = (space_disc.dx_flux(*mesh, i, j) -
+                             space_disc.dx_flux(*mesh, i - 1, j)) /
+                            mesh->dx();
+
+      EXPECT_NEAR(d2t_dx2, x2_deriv, 1e-6);
+
+      const real y2_deriv = (space_disc.dy_flux(*mesh, i, j) -
+                             space_disc.dy_flux(*mesh, i, j - 1)) /
+                            mesh->dy();
+
       const real d2t_dy2 = (space_disc.solution_dy(x, y_max) -
                             space_disc.solution_dy(x, y_min)) /
                            mesh->dy();
 
-      EXPECT_NEAR(d2t_dy2, space_disc.solution_dy2(x, y), 5e-6);
+      EXPECT_NEAR(d2t_dy2, y2_deriv, 1e-6);
 
       const real diffuse = (d2t_dx2 + d2t_dy2) / (reynolds * prandtl);
-      const real dx_1    = space_disc_diffuse.dx_flux(*mesh, i, j);
-      const real dx_2    = space_disc_diffuse.dx_flux(*mesh, i - 1, j);
 
-      const real dy_1 = space_disc_diffuse.dy_flux(*mesh, i, j);
-      const real dy_2 = space_disc_diffuse.dy_flux(*mesh, i, j - 1);
-      printf(
-          "%2d %2d (% .3e, % .3e): x2_deriv: (% .6e - % .6e) / % .3e = % .6e "
-          "vs % .6e vs % .6e vs % .6e\n",
-          i, j, x, y, dx_1, dx_2, mesh->dx(),
-          (dx_1 - dx_2) / mesh->dx() + (dy_1 - dy_2) / mesh->dy(),
-          space_disc_diffuse.solution_dx2(x, y) +
-              space_disc_diffuse.solution_dy2(x, y),
-          diffuse * reynolds * prandtl,
-          space_disc_diffuse.flux_integral(*mesh, i, j));
+      EXPECT_EQ((x2_deriv + y2_deriv) / (reynolds * prandtl),
+                space_disc.flux_integral(*mesh, i, j));
 
-      // EXPECT_NEAR(diffuse, space_disc_diffuse.flux_integral(*mesh, i, j),
-      // 5e-5);
+      // printf(
+      //     "%2d %2d (% .3e, % .3e): "
+      //     "% .6e vs % .6e vs % .6e\n",
+      //     i, j, x, y, space_disc_diffuse.solution_dy2(x, y),
+      //     space_disc_diffuse.flux_integral(*mesh, i, j),
+      //     2.0 * pi * pi * cos(pi * x) * sin(pi * y));
+
+      EXPECT_NEAR(diffuse, space_disc.flux_integral(*mesh, i, j), 5e-5);
 
       // const real dt_dx =
       //     (space_disc_u.solution(x_max, y) * space_disc_u.u(x_max, y) -
@@ -192,7 +201,8 @@ TEST(part_1, flux_integral_2) {
       // EXPECT_NEAR(dt_dx, -space_disc_u.flux_integral(*mesh, i, j), 1e-6);
 
       // const real dt_dy = space_disc_v.solution_dy(x, y) * space_disc_v.v(x,
-      // y); EXPECT_NEAR(dt_dy, -space_disc_v.flux_integral(*mesh, i, j), 1e-6);
+      // y); EXPECT_NEAR(dt_dy, -space_disc_v.flux_integral(*mesh, i, j),
+      // 1e-6);
 
       // EXPECT_NEAR(space_disc.flux_integral(*mesh, i, j),
       //             -dt_dx - dt_dy + (d2t_dx2 + d2t_dy2) / (reynolds *

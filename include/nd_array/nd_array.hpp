@@ -11,7 +11,11 @@ namespace ND_Array_internals {
 template <typename A_Type, typename Dims_CT_Array>
 class [[nodiscard]] _nd_array {
  public:
-  constexpr _nd_array() noexcept {}
+  constexpr _nd_array() noexcept {
+    for(int i = 0; i < DIMS::product(); i++) {
+      vals[i] = A_Type();
+    }
+	}
 
   constexpr _nd_array(const _nd_array<A_Type, Dims_CT_Array>
                           &src) noexcept {
