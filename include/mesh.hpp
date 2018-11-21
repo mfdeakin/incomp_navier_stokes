@@ -16,6 +16,7 @@ class [[nodiscard]] Mesh {
 
   using ControlVolumes = ND_Array<real, ctrl_vols_x, ctrl_vols_y>;
 
+  // Dimension Related Methods
   [[nodiscard]] static constexpr int x_dim() noexcept { return ctrl_vols_x; }
 
   [[nodiscard]] static constexpr int y_dim() noexcept { return ctrl_vols_y; }
@@ -54,6 +55,7 @@ class [[nodiscard]] Mesh {
             static_cast<int>((y - y_min(0)) / dy())};
   }
 
+  // Stored Physical Values
   [[nodiscard]] constexpr const real &Temp(const int i, const int j)
       const noexcept {
     return _temp(i, j);
@@ -99,6 +101,7 @@ class [[nodiscard]] Mesh {
 
   [[nodiscard]] constexpr ControlVolumes &v_vel() noexcept { return _v_vel; }
 
+  // Interpolated Physical Values
   [[nodiscard]] constexpr real interpolate_T(const real x, const real y)
       const noexcept {
     return interpolate_internal(_temp, x, y);
@@ -156,9 +159,9 @@ class [[nodiscard]] Mesh {
       if(j >= ctrl_vols_y) {
         j--;
       }
-      assert(i >= 0);
-      assert(j >= 0);
-      return std::pair<int, int>({i, j});
+      assert(i > 0);
+      assert(j > 0);
+      return std::pair<int, int>(i, j);
     }();
 
     const real x_weight = (x - x_min(right)) / dx() * 2.0;
@@ -170,9 +173,9 @@ class [[nodiscard]] Mesh {
            (1.0 - x_weight) * (1.0 - y_weight) * q(right - 1, above - 1);
   }
 
-  const real _x_min, _x_max;
-  const real _y_min, _y_max;
-  const real _dx, _dy;
+  real _x_min, _x_max;
+  real _y_min, _y_max;
+  real _dx, _dy;
 
   ControlVolumes _temp;
   ControlVolumes _u_vel, _v_vel;
