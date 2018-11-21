@@ -112,14 +112,14 @@ compute_error_min_conv(
   real min_order = std::numeric_limits<real>::infinity();
   real avg_order = 0.0;
   int order_i = -1, order_j = -1;
-  for(int i = 1; i < CoarseMesh::x_dim() - 1; i++) {
-    for(int j = 1; j < CoarseMesh::y_dim() - 1; j++) {
+  for(int i = 0; i < CoarseMesh::x_dim(); i++) {
+    for(int j = 0; j < CoarseMesh::y_dim(); j++) {
       const real coarse_err = est_error_coarse(coarse, i, j);
       const auto [fine_i, fine_j] =
           fine.cell_idx(coarse.x_median(i), coarse.y_median(j));
       const real fine_err = est_error_fine(fine, fine_i, fine_j);
       if(fine_err != 0.0) {
-        const real order = std::log2(coarse_err / fine_err);
+        const real order = std::log2(std::abs(coarse_err / fine_err));
         avg_order += order;
         if(order < min_order) {
           min_order = order;
@@ -140,10 +140,10 @@ template <typename MeshT>
 std::pair<std::unique_ptr<MeshT>,
           std::unique_ptr<Mesh<MeshT::x_dim() * 2, MeshT::y_dim() * 2>>>
 compute_mesh_errs_init(
-    const SecondOrderCentered_Part1 &space_disc,
+    const EnergyAssembly<SecondOrderCentered_Part1> &space_disc,
     std::vector<std::tuple<int, real, real, real>> &vec,
     std::function<std::unique_ptr<Mesh<MeshT::x_dim() * 2, MeshT::y_dim() * 2>>(
-        const SecondOrderCentered_Part1 &space_disc,
+        const EnergyAssembly<SecondOrderCentered_Part1> &space_disc,
         std::vector<std::tuple<int, real, real, real>> &vec)>
         compute_errs) {
   constexpr int x_dim = MeshT::x_dim();

@@ -149,7 +149,7 @@ class [[nodiscard]] Mesh {
     // containing the point if those indices are valid
     // Otherwise, we use a bilinear approximation with cells to the left and/or
     // below the cell containing the point
-    const auto [right, above] = [&]() {
+    const auto [right, above] = [&]() -> std::pair<int, int> {
       const real cell_right = x + dx() / 2.0;
       const real cell_above = y + dy() / 2.0;
       auto [i, j]           = cell_idx(cell_right, cell_above);

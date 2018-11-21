@@ -21,8 +21,8 @@
  *  RHS: The solution x.
  */
 template <typename Mtx>
-constexpr void SolveThomas(Mtx &LHS,
-                           ND_Array<real, Mtx::extent(0)> &RHS) noexcept {
+constexpr void solve_thomas(Mtx &LHS,
+                            ND_Array<real, Mtx::extent(0)> &RHS) noexcept {
   constexpr int ctrl_vols = Mtx::extent(0);
   /* This next line actually has no effect, but it -does- make clear that
      the values in those locations have no impact. */

@@ -4,6 +4,7 @@
 
 #include "constants.hpp"
 
+#include <cmath>
 #include <functional>
 
 // Use the curiously repeated template parameter to swap out the order of the
@@ -37,9 +38,9 @@ class [[nodiscard]] EnergyAssembly : public _SpaceDisc {
   template <typename MeshT>
   void flux_assembly(const MeshT &initial, const MeshT &current, MeshT &next,
                      const real time, const real dt) const noexcept {
-    for(int i = 0; i < initial.extent(0); i++) {
-      for(int j = 0; j < initial.extent(1); j++) {
-        next(i, j) = initial(i, j) - dt * flux_integral(current, i, j);
+    for(int i = 0; i < initial.x_dim(); i++) {
+      for(int j = 0; j < initial.y_dim(); j++) {
+        next.Temp(i, j) = initial.Temp(i, j) + dt * flux_integral(current, i, j);
       }
     }
   }
@@ -231,7 +232,7 @@ class [[nodiscard]] SecondOrderCentered_Part1 {
         pi * v_0() * x * std::cos(pi * x) * std::cos(2.0 * pi * y);
     const real diffusion_fi = (2.0 * pi * pi / (reynolds * prandtl)) *
                               std::cos(pi * x) * std::sin(pi * y);
-    return T_0() * (u_dt_dx_fi + v_dt_dy_fi + diffusion_fi);
+    return -T_0() * (u_dt_dx_fi + v_dt_dy_fi + diffusion_fi);
   }
 
   // Use the exact solutions to implement the boundary conditions and also check
