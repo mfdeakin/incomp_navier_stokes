@@ -97,4 +97,63 @@ void fill_mesh(
   }
 }
 
+// This computes the L1 error and the order of minimum convergence of the
+// solution for each cell in the fine mesh.
+// This requires that you specify how the error is computed with the est_error
+// functor, and how the order of convergence of the cell values are computed
+// with the est_order functor
+template <typename FineMesh, typename CoarseMesh>
+[[nodiscard]] std::tuple<int, int, int, real, real> compute_error_min_conv(
+    FineMesh &fine, const CoarseMesh &coarse,
+    std::function<real(const FineMesh &, const int, const int)> est_error_fine,
+    std::function<real(const CoarseMesh &, const int, const int)>
+        est_error_coarse) noexcept {
+  real min_order = std::numeric_limits<real>::infinity();
+  int order_i = -1, order_j = -1;
+  for(int i = 1; i < CoarseMesh::x_dim() - 1; i++) {
+    for(int j = 1; j < CoarseMesh::y_dim() - 1; j++) {
+      const real coarse_err = est_error_coarse(coarse, i, j);
+      const auto [fine_i, fine_j] =
+          fine.cell_idx(coarse.x_median(i), coarse.y_median(j));
+      const real fine_err = est_error_fine(fine, fine_i, fine_j);
+      if(fine_err != 0.0) {
+        const real order = std::log2(coarse_err / fine_err);
+        if(order < min_order) {
+          min_order = order;
+          order_i   = i;
+          order_j   = j;
+        }
+      }    }
+  }
+  const real l1_err = TestUtils::l1_error(fine, est_error_fine);
+
+  return {FineMesh::x_dim(), order_i, order_j, min_order, l1_err};
+}
+
+template <typename MeshT>
+std::pair<std::unique_ptr<MeshT>,
+          std::unique_ptr<Mesh<MeshT::x_dim() * 2, MeshT::y_dim() * 2>>>
+compute_mesh_errs_init(
+    const SecondOrderCentered_Part1 &space_disc,
+    std::vector<std::tuple<int, real, real>> &vec,
+    std::function<std::unique_ptr<Mesh<MeshT::x_dim() * 2, MeshT::y_dim() * 2>>(
+        const SecondOrderCentered_Part1 &space_disc,
+        std::vector<std::tuple<int, real, real>> &vec)>
+        compute_errs) {
+  constexpr int x_dim = MeshT::x_dim();
+  constexpr int y_dim = MeshT::y_dim();
+  using FineMesh      = Mesh<x_dim * 2, y_dim * 2>;
+  // Before we create our own mesh, we need to get the next two
+  // This ensures that no more than 3 meshes are allocated at any given time
+  std::unique_ptr<FineMesh> fine_mesh = compute_errs(space_disc, vec);
+
+  // Now just initialize the coarse mesh and compute the results for the fine
+  // mesh
+  std::unique_ptr<MeshT> coarse_mesh =
+      std::make_unique<MeshT>(space_disc.x_min(), space_disc.x_max(),
+                              space_disc.y_min(), space_disc.y_max());
+  TestUtils::fill_mesh(*coarse_mesh, space_disc.solution_tuple());
+  return {std::move(coarse_mesh), std::move(fine_mesh)};
+}
+
 }  // namespace TestUtils
