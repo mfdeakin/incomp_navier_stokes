@@ -103,12 +103,14 @@ void fill_mesh(
 // functor, and how the order of convergence of the cell values are computed
 // with the est_order functor
 template <typename FineMesh, typename CoarseMesh>
-[[nodiscard]] std::tuple<int, int, int, real, real> compute_error_min_conv(
+[[nodiscard]] std::tuple<int, int, int, real, real, real>
+compute_error_min_conv(
     FineMesh &fine, const CoarseMesh &coarse,
     std::function<real(const FineMesh &, const int, const int)> est_error_fine,
     std::function<real(const CoarseMesh &, const int, const int)>
         est_error_coarse) noexcept {
   real min_order = std::numeric_limits<real>::infinity();
+  real avg_order = 0.0;
   int order_i = -1, order_j = -1;
   for(int i = 1; i < CoarseMesh::x_dim() - 1; i++) {
     for(int j = 1; j < CoarseMesh::y_dim() - 1; j++) {
@@ -118,16 +120,20 @@ template <typename FineMesh, typename CoarseMesh>
       const real fine_err = est_error_fine(fine, fine_i, fine_j);
       if(fine_err != 0.0) {
         const real order = std::log2(coarse_err / fine_err);
+        avg_order += order;
         if(order < min_order) {
           min_order = order;
           order_i   = i;
           order_j   = j;
         }
-      }    }
+      }
+    }
   }
+  avg_order /= CoarseMesh::x_dim() * CoarseMesh::y_dim();
+
   const real l1_err = TestUtils::l1_error(fine, est_error_fine);
 
-  return {FineMesh::x_dim(), order_i, order_j, min_order, l1_err};
+  return {FineMesh::x_dim(), order_i, order_j, min_order, avg_order, l1_err};
 }
 
 template <typename MeshT>
@@ -135,10 +141,10 @@ std::pair<std::unique_ptr<MeshT>,
           std::unique_ptr<Mesh<MeshT::x_dim() * 2, MeshT::y_dim() * 2>>>
 compute_mesh_errs_init(
     const SecondOrderCentered_Part1 &space_disc,
-    std::vector<std::tuple<int, real, real>> &vec,
+    std::vector<std::tuple<int, real, real, real>> &vec,
     std::function<std::unique_ptr<Mesh<MeshT::x_dim() * 2, MeshT::y_dim() * 2>>(
         const SecondOrderCentered_Part1 &space_disc,
-        std::vector<std::tuple<int, real, real>> &vec)>
+        std::vector<std::tuple<int, real, real, real>> &vec)>
         compute_errs) {
   constexpr int x_dim = MeshT::x_dim();
   constexpr int y_dim = MeshT::y_dim();

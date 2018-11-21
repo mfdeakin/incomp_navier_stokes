@@ -233,7 +233,7 @@ typename std::enable_if<MeshT::x_dim() >= max_mesh_size,
                         // Return the current mesh and the next largest mesh
                         std::unique_ptr<MeshT>>::type
 compute_source_errors(const SecondOrderCentered_Part1 &space_disc,
-                      std::vector<std::tuple<int, real, real>> &vec) {
+                      std::vector<std::tuple<int, real, real, real>> &vec) {
   auto mesh = std::make_unique<MeshT>(space_disc.x_min(), space_disc.x_max(),
                                       space_disc.y_min(), space_disc.y_max());
   // Ensure it's initialized with the solution
@@ -247,19 +247,15 @@ template <typename MeshT>
 typename std::enable_if<MeshT::x_dim() < max_mesh_size,
                         std::unique_ptr<MeshT>>::type
 compute_source_errors(const SecondOrderCentered_Part1 &space_disc,
-                      std::vector<std::tuple<int, real, real>> &vec) {
+                      std::vector<std::tuple<int, real, real, real>> &vec) {
   constexpr int x_dim = MeshT::x_dim();
   constexpr int y_dim = MeshT::y_dim();
 
   using CoarseMesh = MeshT;
   using FineMesh   = Mesh<x_dim * 2, y_dim * 2>;
 
-  std::function<std::unique_ptr<FineMesh>(
-      const SecondOrderCentered_Part1 &space_disc,
-      std::vector<std::tuple<int, real, real>> &vec)>
-      next = compute_source_errors<FineMesh>;
-  auto [coarse_mesh, fine_mesh] =
-      TestUtils::compute_mesh_errs_init<MeshT>(space_disc, vec, next);
+  auto [coarse_mesh, fine_mesh] = TestUtils::compute_mesh_errs_init<MeshT>(
+      space_disc, vec, compute_source_errors<FineMesh>);
 
   std::function<real(const FineMesh &, const int i, const int j)> est_err_fine =
       [=](const FineMesh &mesh, const int i, const int j) {
@@ -274,11 +270,12 @@ compute_source_errors(const SecondOrderCentered_Part1 &space_disc,
         return space_disc.source_sol(x, y) - space_disc.source_fd(mesh, i, j);
       };
 
-  std::tuple<int, int, int, real, real> t =
+  std::tuple<int, int, int, real, real, real> t =
       TestUtils::compute_error_min_conv<FineMesh, CoarseMesh>(
           *fine_mesh, *coarse_mesh, est_err_fine, est_err_coarse);
 
-  vec.push_back({std::get<0>(t), std::get<3>(t), std::get<4>(t)});
+  vec.push_back(
+      {std::get<0>(t), std::get<3>(t), std::get<4>(t), std::get<5>(t)});
   return std::move(coarse_mesh);
 }
 
@@ -304,20 +301,21 @@ TEST(part_2, source_term) {
   }
 }
 
-TEST(part_1, flux_integral_convergence) {
-  using err_tuple = std::tuple<int, real, real>;
+TEST(part_2, source_term_convergence) {
+  using err_tuple = std::tuple<int, real, real, real>;
   SecondOrderCentered_Part1 space_disc(1.0, 1.0, 1.0);
   std::vector<err_tuple> errors;
-  compute_source_errors<Mesh<10, 10>>(space_disc, errors);
+  compute_source_errors<Mesh<20, 20>>(space_disc, errors);
   // For the solution to be correct, the order of convergence (as the mesh
   // grows) must match the order of the spatial discretization, and the
   // extrapolated estimate should go to 0
-  for(const auto [m_dim, l1_err, min_order] : errors) {
-    EXPECT_NEAR(2.0, min_order, 2e-1);
+  for(const auto [m_dim, min_order, avg_order, l1_err] : errors) {
+    EXPECT_NEAR(2.0, avg_order, 5e-1);
     printf(
-        "Richardson Minimum Estimated Order: % .3e; L1 Error: % .3e;"
+        "Richardson Minimum Estimated Order: % .3e; Average Order: % .3e; L1 "
+        "Error: % .3e;"
         " for mesh %d\n",
-        min_order, l1_err, m_dim);
+        min_order, avg_order, l1_err, m_dim);
   }
 }
 
