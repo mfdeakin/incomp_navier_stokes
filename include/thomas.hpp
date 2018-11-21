@@ -6,7 +6,8 @@
 
 #include <limits>
 
-/* Solve a tri-diagonal system Ax = b.
+/* Author: Carl Ollivier-Gooch
+ * Solve a tri-diagonal system Ax = b.
  *
  * Uses the Thomas algorithm, which is Gauss elimination and back
  * substitution specialized for a tri-diagonal matrix.
