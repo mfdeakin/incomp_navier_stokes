@@ -65,43 +65,74 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
     using VecT            = ND_Array<real, vec_dim>;
     using MtxT            = ND_Array<real, vec_dim, 3>;
 
+    const MeshT &mesh                   = *this->_cur_mesh;
+    const SpaceAssembly &space_assembly = this->space_assembly();
+
     // Fill MtxT with our Dx Terms
     // Fill VecT with the source terms and the flux integral
     // Then solve for the solution to our y vector
     // Then fill MtxT with our Dy Terms
     // And solve for our dT vector
     typename MeshT::ControlVolumes sol_mesh;
-    VecT &sol = sol_mesh.reshape();
+    VecT &sol_dx = sol_mesh.template reshape<VecT>();
     MtxT dx;
 
     for(int i = 0, m = 0; i < MeshT::x_dim(); i++) {
       for(int j = 0; j < MeshT::y_dim(); j++, m++) {
-        sol_mesh(i, j) =
-            (this->_space_assembly.flux_integral(*(this->_cur_mesh), i, j) +
-             this->space_assembly.source_fd(*(this->_cur_mesh), i, j)) *
-            dt;
-        dx(m, 0) = 0.0;
-        dx(m, 1) = 0.0;
-        dx(m, 2) = 0.0;
+        sol_mesh(i, j) = (space_assembly.flux_integral(mesh, i, j) +
+                          space_assembly.source_fd(mesh, i, j)) *
+                         dt;
+        // (-u_{i - 1, j} / (2.0 \Delta x) - 1.0 / (Re * Pr * \Delta x^2))
+        // \delta T_{i - 1, j} \Delta t
+
+        // (1.0 + 2.0 / (Re * Pr) * (\Delta x^{-2} + \Delta y^{-2}) \Delta t)
+        // \delta T_{i, j}
+
+        // (u_{i + 1, j} / (2.0 \Delta x) - 1.0 / (Re * Pr * \Delta x^2)) \delta
+        // T_{i + 1, j} \Delta t
+        dx(m, 0) = space_assembly.Dx_m1(mesh, i, j) * dt;
+        dx(m, 1) = space_assembly.Dx_0(mesh, i, j) * dt + 1.0;
+        dx(m, 2) = space_assembly.Dx_p1(mesh, i, j) * dt;
       }
     }
-    solve_thomas(dx, sol);
+    solve_thomas(dx, sol_dx);
+
+    ND_Array<real, MeshT::y_dim(), MeshT::x_dim()> transpose_sol;
 
     MtxT dy;
-    for(int i = 0, m = 0; i < MeshT::x_dim(); i++) {
-      for(int j = 0; j < MeshT::y_dim(); j++, m++) {
-        dy(m, 0) = 0.0;
-        dy(m, 1) = 0.0;
-        dy(m, 2) = 0.0;
+    for(int i = 0; i < MeshT::x_dim(); i++) {
+      for(int j = 0; j < MeshT::y_dim(); j++) {
+        // Note that since the Thomas algorithm solves a tridiagonal system,
+        // we need to swap some rows of the solution to make the matrix
+        // tridiagonal ie, go from increasing the x index to increasing the y
+        // index. This is easiest to achieve by taking the transpose of the
+        // solution when looking at it like a matrix
+        transpose_sol(j, i) = sol_mesh(i, j);
       }
     }
-    solve_thomas(dy, sol);
+
+    for(int i = 0, m = 0; i < MeshT::x_dim(); i++) {
+      for(int j = 0; j < MeshT::y_dim(); j++, m++) {
+        // (-v_{i, j - 1} / (2.0 \Delta y) - 1.0 / (Re * Pr * \Delta y^2))
+        // \delta T_{i, j - 1} \Delta t (1.0 + 2.0 / (Re * Pr) * (\Delta x^{-2}
+        // + \Delta y^{-2}) \Delta t) \delta T_{i, j} (v_{i, j + 1} / (2.0
+        // \Delta y) - 1.0 / (Re * Pr * \Delta y^2)) \delta T_{i, j + 1} \Delta
+        // t
+        dy(m, 0) = space_assembly.Dy_m1(mesh, i, j) * dt;
+        dy(m, 1) = space_assembly.Dy_0(mesh, i, j) * dt + 1.0;
+        dy(m, 2) = space_assembly.Dy_p1(mesh, i, j) * dt;
+      }
+    }
+		VecT &sol_dy = transpose_sol.template reshape<VecT>();
+    solve_thomas(dy, sol_dy);
 
     // sol now contains our dT terms
     // So just add it to our T terms
+    // Recall that our sol_mesh is transposed, so we need to swap the indices
+    // used for it
     for(int i = 0, m = 0; i < MeshT::x_dim(); i++) {
       for(int j = 0; j < MeshT::y_dim(); j++, m++) {
-        this->_cur_mesh->Temp(i, j) += sol_mesh(i, j);
+        this->_cur_mesh->Temp(i, j) += transpose_sol(j, i);
       }
     }
   }

@@ -90,8 +90,7 @@ void plot_mesh_contour(const Solver &solver) {
 }
 
 // Look at norms of error in the flux
-
-void plot_energy_evolution() {
+void plot_explicit_energy_evolution() {
   py::object Show = py::module::import("matplotlib.pyplot").attr("show");
 
   constexpr int ctrl_vols_x = 256;
@@ -102,10 +101,29 @@ void plot_energy_evolution() {
 
   RK4_Solver<MeshT, SpaceDisc> solver;
 
-  for(int i = 0; i < 6; i++) {
+  for(int i = 0; i < 3; i++) {
     plot_mesh_surface(solver);
-    Show();
     solver.timestep(0.25);
+  }
+
+  plot_mesh_surface(solver);
+  Show();
+}
+
+void plot_implicit_energy_evolution() {
+  py::object Show = py::module::import("matplotlib.pyplot").attr("show");
+
+  constexpr int ctrl_vols_x = 256;
+  constexpr int ctrl_vols_y = 256;
+
+  using MeshT     = Mesh<ctrl_vols_x, ctrl_vols_y>;
+  using SpaceDisc = EnergyAssembly<SecondOrderCentered_Part1>;
+
+  ImplicitEuler_Solver<MeshT, SpaceDisc> solver;
+
+  for(int i = 0; i < 3; i++) {
+    plot_mesh_surface(solver);
+    solver.timestep(0.1);
   }
 
   plot_mesh_surface(solver);
@@ -263,7 +281,8 @@ void plot_nabla2_T() {
 int main(int argc, char **argv) {
   // Our Python instance
   py::scoped_interpreter _{};
-  plot_energy_evolution();
+  plot_explicit_energy_evolution();
+  plot_implicit_energy_evolution();
   plot_dx_flux();
   plot_dy_flux();
   plot_nabla2_T();

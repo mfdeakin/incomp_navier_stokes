@@ -10,7 +10,7 @@
 // Use the curiously repeated template parameter to swap out the order of the
 // discretization in our assembly
 template <typename _SpaceDisc>
-class[[nodiscard]] EnergyAssembly : public _SpaceDisc {
+class [[nodiscard]] EnergyAssembly : public _SpaceDisc {
  public:
   // u = u_0 y \sin(\pi x)
   // v = v_0 x \cos(\pi y)
@@ -64,6 +64,63 @@ class[[nodiscard]] EnergyAssembly : public _SpaceDisc {
 
 class [[nodiscard]] SecondOrderCentered_Part1 {
  public:
+  // Terms for implicit euler
+  template <typename MeshT>
+  [[nodiscard]] constexpr real Dx_p1(const MeshT &mesh, int i, int j)
+      const noexcept {
+    if(i < mesh.x_dim() - 1) {
+      return mesh.u_vel(i + 1, j) / (2.0 * mesh.dx()) -
+             1.0 / (reynolds * prandtl * mesh.dx() * mesh.dx());
+    } else {
+      return std::numeric_limits<real>::quiet_NaN();
+    }
+  }
+
+  template <typename MeshT>
+  [[nodiscard]] constexpr real Dx_0(const MeshT &mesh, int i, int j)
+      const noexcept {
+    return 2.0 / (reynolds * prandtl * mesh.dx() * mesh.dx());
+  }
+
+  template <typename MeshT>
+  [[nodiscard]] constexpr real Dx_m1(const MeshT &mesh, int i, int j)
+      const noexcept {
+    if(i > 0) {
+      return -mesh.u_vel(i - 1, j) / (2.0 * mesh.dx()) -
+             1.0 / (reynolds * prandtl * mesh.dx() * mesh.dx());
+    } else {
+      return std::numeric_limits<real>::quiet_NaN();
+    }
+  }
+
+  template <typename MeshT>
+  [[nodiscard]] constexpr real Dy_p1(const MeshT &mesh, int i, int j)
+      const noexcept {
+    if(j < mesh.y_dim() - 1) {
+      return mesh.v_vel(i, j + 1) / (2.0 * mesh.dy()) -
+             1.0 / (reynolds * prandtl * mesh.dy() * mesh.dy());
+    } else {
+      return std::numeric_limits<real>::quiet_NaN();
+    }
+  }
+
+  template <typename MeshT>
+  [[nodiscard]] constexpr real Dy_0(const MeshT &mesh, int i, int j)
+      const noexcept {
+    return 2.0 / (reynolds * prandtl * mesh.dy() * mesh.dy());
+  }
+
+  template <typename MeshT>
+  [[nodiscard]] constexpr real Dy_m1(const MeshT &mesh, int i, int j)
+      const noexcept {
+    if(j > 0) {
+      return -mesh.v_vel(i, j - 1) / (2.0 * mesh.dy()) -
+             1.0 / (reynolds * prandtl * mesh.dy() * mesh.dy());
+    } else {
+      return std::numeric_limits<real>::quiet_NaN();
+    }
+  }
+
   // Centered FV approximation to (u T)_{i+1/2, j}
   template <typename MeshT>
   [[nodiscard]] constexpr real uT_x_flux(const MeshT &mesh, const int i,
