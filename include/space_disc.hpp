@@ -72,7 +72,7 @@ class [[nodiscard]] SecondOrderCentered_Part1 {
       return mesh.u_vel(i + 1, j) / (2.0 * mesh.dx()) -
              1.0 / (reynolds * prandtl * mesh.dx() * mesh.dx());
     } else {
-      return std::numeric_limits<real>::quiet_NaN();
+      return 0.0;
     }
   }
 
@@ -89,7 +89,7 @@ class [[nodiscard]] SecondOrderCentered_Part1 {
       return -mesh.u_vel(i - 1, j) / (2.0 * mesh.dx()) -
              1.0 / (reynolds * prandtl * mesh.dx() * mesh.dx());
     } else {
-      return std::numeric_limits<real>::quiet_NaN();
+      return 0.0;
     }
   }
 
@@ -100,7 +100,7 @@ class [[nodiscard]] SecondOrderCentered_Part1 {
       return mesh.v_vel(i, j + 1) / (2.0 * mesh.dy()) -
              1.0 / (reynolds * prandtl * mesh.dy() * mesh.dy());
     } else {
-      return std::numeric_limits<real>::quiet_NaN();
+      return 0.0;
     }
   }
 
@@ -117,7 +117,7 @@ class [[nodiscard]] SecondOrderCentered_Part1 {
       return -mesh.v_vel(i, j - 1) / (2.0 * mesh.dy()) -
              1.0 / (reynolds * prandtl * mesh.dy() * mesh.dy());
     } else {
-      return std::numeric_limits<real>::quiet_NaN();
+      return 0.0;
     }
   }
 

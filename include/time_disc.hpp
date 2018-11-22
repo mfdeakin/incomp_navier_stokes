@@ -6,6 +6,7 @@
 #include "thomas.hpp"
 
 #include <algorithm>
+#include <cassert>
 #include <memory>
 
 template <typename _Mesh, typename _SpaceAssembly>
@@ -82,6 +83,7 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
         sol_mesh(i, j) = (space_assembly.flux_integral(mesh, i, j) +
                           space_assembly.source_fd(mesh, i, j)) *
                          dt;
+        assert(!std::isnan(sol_mesh(i, j)));
         // (-u_{i - 1, j} / (2.0 \Delta x) - 1.0 / (Re * Pr * \Delta x^2))
         // \delta T_{i - 1, j} \Delta t
 
@@ -93,6 +95,13 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
         dx(m, 0) = space_assembly.Dx_m1(mesh, i, j) * dt;
         dx(m, 1) = space_assembly.Dx_0(mesh, i, j) * dt + 1.0;
         dx(m, 2) = space_assembly.Dx_p1(mesh, i, j) * dt;
+        if(m != 0) {
+          assert(!std::isnan(dx(m, 0)));
+        }
+        assert(!std::isnan(dx(m, 1)));
+        if(m != vec_dim - 1) {
+          assert(!std::isnan(dx(m, 2)));
+        }
       }
     }
     solve_thomas(dx, sol_dx);
@@ -107,6 +116,7 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
         // tridiagonal ie, go from increasing the x index to increasing the y
         // index. This is easiest to achieve by taking the transpose of the
         // solution when looking at it like a matrix
+        assert(!std::isnan(sol_mesh(i, j)));
         transpose_sol(j, i) = sol_mesh(i, j);
       }
     }
@@ -121,9 +131,12 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
         dy(m, 0) = space_assembly.Dy_m1(mesh, i, j) * dt;
         dy(m, 1) = space_assembly.Dy_0(mesh, i, j) * dt + 1.0;
         dy(m, 2) = space_assembly.Dy_p1(mesh, i, j) * dt;
+        assert(!std::isnan(dy(m, 0)));
+        assert(!std::isnan(dy(m, 1)));
+        assert(!std::isnan(dy(m, 2)));
       }
     }
-		VecT &sol_dy = transpose_sol.template reshape<VecT>();
+    VecT &sol_dy = transpose_sol.template reshape<VecT>();
     solve_thomas(dy, sol_dy);
 
     // sol now contains our dT terms
@@ -132,6 +145,7 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
     // used for it
     for(int i = 0, m = 0; i < MeshT::x_dim(); i++) {
       for(int j = 0; j < MeshT::y_dim(); j++, m++) {
+        assert(!std::isnan(transpose_sol(j, i)));
         this->_cur_mesh->Temp(i, j) += transpose_sol(j, i);
       }
     }
