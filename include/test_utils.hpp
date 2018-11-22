@@ -158,7 +158,7 @@ compute_mesh_errs_init(
   std::unique_ptr<MeshT> coarse_mesh =
       std::make_unique<MeshT>(space_disc.x_min(), space_disc.x_max(),
                               space_disc.y_min(), space_disc.y_max());
-  TestUtils::fill_mesh(*coarse_mesh, space_disc.solution_tuple());
+  TestUtils::fill_mesh(*coarse_mesh, space_disc.initial_solution_tuple());
   return {std::move(coarse_mesh), std::move(fine_mesh)};
 }
 

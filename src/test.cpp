@@ -19,13 +19,13 @@ TEST(utility, fill_mesh) {
   std::unique_ptr<MeshT> mesh =
       std::make_unique<MeshT>(min_x, max_x, min_y, max_y);
   EnergyAssembly<SecondOrderCentered_Part1> space_disc(1.0, pi, 1.0 / pi);
-  TestUtils::fill_mesh(*mesh, space_disc.solution_tuple());
+  TestUtils::fill_mesh(*mesh, space_disc.initial_solution_tuple());
 
   for(int i = 0; i < mesh->x_dim(); i++) {
     for(int j = 0; j < mesh->y_dim(); j++) {
       const real x = mesh->x_median(i);
       const real y = mesh->y_median(j);
-      EXPECT_EQ(mesh->Temp(i, j), space_disc.solution(x, y));
+      EXPECT_EQ(mesh->Temp(i, j), space_disc.solution(x, y, 0.0));
       EXPECT_EQ(mesh->u_vel(i, j), space_disc.u(x, y));
       EXPECT_EQ(mesh->v_vel(i, j), space_disc.v(x, y));
     }
@@ -68,14 +68,14 @@ TEST(part_1, fluxes_calc_1) {
       const real x_flux = std::get<0>(sol(mesh->x_max(i), y));
       const real y_flux = std::get<0>(sol(x, mesh->y_max(j)));
 
-      EXPECT_NEAR(x_flux, space_disc.uT_x_flux(*mesh, i, j), max_err);
-      EXPECT_NEAR(y_flux, space_disc.vT_y_flux(*mesh, i, j), max_err);
+      EXPECT_NEAR(x_flux, space_disc.uT_x_flux(*mesh, i, j, 0.0), max_err);
+      EXPECT_NEAR(y_flux, space_disc.vT_y_flux(*mesh, i, j, 0.0), max_err);
 
       const real dx_flux = sol_dx(mesh->x_max(i), y);
       const real dy_flux = sol_dy(x, mesh->y_max(j));
 
-      EXPECT_NEAR(dx_flux, space_disc.dx_flux(*mesh, i, j), max_err);
-      EXPECT_NEAR(dy_flux, space_disc.dy_flux(*mesh, i, j), max_err);
+      EXPECT_NEAR(dx_flux, space_disc.dx_flux(*mesh, i, j, 0.0), max_err);
+      EXPECT_NEAR(dy_flux, space_disc.dy_flux(*mesh, i, j, 0.0), max_err);
     }
   }
 }
@@ -92,7 +92,7 @@ TEST(part_1, fluxes_calc_2) {
       std::make_unique<MeshT>(min_x, max_x, min_y, max_y);
   EnergyAssembly<SecondOrderCentered_Part1> space_disc(1.0, pi, 1.0 / pi);
 
-  TestUtils::fill_mesh(*mesh, space_disc.solution_tuple());
+  TestUtils::fill_mesh(*mesh, space_disc.initial_solution_tuple());
 
   // Start at negative 1 to ensure the boundaries are implemented correctly
   for(int i = -1; i < ctrl_vols_x; i++) {
@@ -104,27 +104,27 @@ TEST(part_1, fluxes_calc_2) {
       // the flux isn't being computed for is outside of the mesh
       if(j != -1) {
         const real x_max = mesh->x_max(i);
-        EXPECT_NEAR(space_disc.solution(x_max, y) * space_disc.u(x_max, y),
-                    space_disc.uT_x_flux(*mesh, i, j), max_err);
-        EXPECT_NEAR(space_disc.solution_dx(x_max, y),
-                    space_disc.dx_flux(*mesh, i, j), max_err);
+        EXPECT_NEAR(space_disc.solution(x_max, y, 0.0) * space_disc.u(x_max, y),
+                    space_disc.uT_x_flux(*mesh, i, j, 0.0), max_err);
+        EXPECT_NEAR(space_disc.solution_dx(x_max, y, 0.0),
+                    space_disc.dx_flux(*mesh, i, j, 0.0), max_err);
         // Sanity check for the derivative solution implementation
-        EXPECT_NEAR((space_disc.solution(x + mesh->dx(), y) -
-                     space_disc.solution(x, y)) /
+        EXPECT_NEAR((space_disc.solution(x + mesh->dx(), y, 0.0) -
+                     space_disc.solution(x, y, 0.0)) /
                         mesh->dx(),
-                    space_disc.dx_flux(*mesh, i, j), max_err);
+                    space_disc.dx_flux(*mesh, i, j, 0.0), max_err);
       }
       if(i != -1) {
         const real y_max = mesh->y_max(j);
-        EXPECT_NEAR(space_disc.solution(x, y_max) * space_disc.v(x, y_max),
-                    space_disc.vT_y_flux(*mesh, i, j), max_err);
-        EXPECT_NEAR(space_disc.solution_dy(x, y_max),
-                    space_disc.dy_flux(*mesh, i, j), max_err);
+        EXPECT_NEAR(space_disc.solution(x, y_max, 0.0) * space_disc.v(x, y_max),
+                    space_disc.vT_y_flux(*mesh, i, j, 0.0), max_err);
+        EXPECT_NEAR(space_disc.solution_dy(x, y_max, 0.0),
+                    space_disc.dy_flux(*mesh, i, j, 0.0), max_err);
         // Sanity check for the derivative solution implementation
-        EXPECT_NEAR((space_disc.solution(x, y + mesh->dy()) -
-                     space_disc.solution(x, y)) /
+        EXPECT_NEAR((space_disc.solution(x, y + mesh->dy(), 0.0) -
+                     space_disc.solution(x, y, 0.0)) /
                         mesh->dy(),
-                    space_disc.dy_flux(*mesh, i, j), max_err);
+                    space_disc.dy_flux(*mesh, i, j, 0.0), max_err);
       }
     }
   }
@@ -237,7 +237,7 @@ compute_source_errors(
   auto mesh = std::make_unique<MeshT>(space_disc.x_min(), space_disc.x_max(),
                                       space_disc.y_min(), space_disc.y_max());
   // Ensure it's initialized with the solution
-  TestUtils::fill_mesh(*mesh, space_disc.solution_tuple());
+  TestUtils::fill_mesh(*mesh, space_disc.initial_solution_tuple());
 
   return mesh;
 }
@@ -262,13 +262,15 @@ compute_source_errors(
       [=](const FineMesh &mesh, const int i, const int j) {
         const real x = mesh.x_median(i);
         const real y = mesh.y_median(j);
-        return space_disc.source_sol(x, y) - space_disc.source_fd(mesh, i, j);
+        return space_disc.source_sol(x, y, 0.0) -
+               space_disc.source_fd(mesh, i, j, 0.0);
       };
   std::function<real(const CoarseMesh &, const int i, const int j)>
       est_err_coarse = [=](const CoarseMesh &mesh, const int i, const int j) {
         const real x = mesh.x_median(i);
         const real y = mesh.y_median(j);
-        return space_disc.source_sol(x, y) - space_disc.source_fd(mesh, i, j);
+        return space_disc.source_sol(x, y, 0.0) -
+               space_disc.source_fd(mesh, i, j, 0.0);
       };
 
   std::tuple<int, int, int, real, real, real> t =
@@ -291,7 +293,7 @@ compute_flux_x_errors(
   auto mesh = std::make_unique<MeshT>(space_disc.x_min(), space_disc.x_max(),
                                       space_disc.y_min(), space_disc.y_max());
   // Ensure it's initialized with the solution
-  TestUtils::fill_mesh(*mesh, space_disc.solution_tuple());
+  TestUtils::fill_mesh(*mesh, space_disc.initial_solution_tuple());
 
   return mesh;
 }
@@ -316,18 +318,19 @@ compute_flux_x_errors(
       [=](const FineMesh &mesh, const int i, const int j) {
         const real x   = mesh.x_median(i);
         const real y   = mesh.y_median(j);
-        const real err = space_disc.solution(x + mesh.dx() / 2.0, y) *
+        const real err = space_disc.solution(x + mesh.dx() / 2.0, y, 0.0) *
                              space_disc.u(x + mesh.dx() / 2.0, y) -
-                         space_disc.uT_x_flux(mesh, i, j);
+                         space_disc.uT_x_flux(mesh, i, j, 0.0);
         return err;
       };
+
   std::function<real(const CoarseMesh &, const int i, const int j)>
       est_err_coarse = [=](const CoarseMesh &mesh, const int i, const int j) {
         const real x = mesh.x_median(i);
         const real y = mesh.y_median(j);
-        return space_disc.solution(x + mesh.dx() / 2.0, y) *
+        return space_disc.solution(x + mesh.dx() / 2.0, y, 0.0) *
                    space_disc.u(x + mesh.dx() / 2.0, y) -
-               space_disc.uT_x_flux(mesh, i, j);
+               space_disc.uT_x_flux(mesh, i, j, 0.0);
       };
 
   std::tuple<int, int, int, real, real, real> t =
@@ -350,7 +353,7 @@ compute_flux_y_errors(
   auto mesh = std::make_unique<MeshT>(space_disc.x_min(), space_disc.x_max(),
                                       space_disc.y_min(), space_disc.y_max());
   // Ensure it's initialized with the solution
-  TestUtils::fill_mesh(*mesh, space_disc.solution_tuple());
+  TestUtils::fill_mesh(*mesh, space_disc.initial_solution_tuple());
 
   return mesh;
 }
@@ -375,18 +378,18 @@ compute_flux_y_errors(
       [=](const FineMesh &mesh, const int i, const int j) {
         const real x   = mesh.x_median(i);
         const real y   = mesh.y_median(j);
-        const real err = space_disc.solution(x, y + mesh.dy() / 2.0) *
+        const real err = space_disc.solution(x, y + mesh.dy() / 2.0, 0.0) *
                              space_disc.v(x, y + mesh.dy() / 2.0) -
-                         space_disc.vT_y_flux(mesh, i, j);
+                         space_disc.vT_y_flux(mesh, i, j, 0.0);
         return err;
       };
   std::function<real(const CoarseMesh &, const int i, const int j)>
       est_err_coarse = [=](const CoarseMesh &mesh, const int i, const int j) {
         const real x   = mesh.x_median(i);
         const real y   = mesh.y_median(j);
-        const real err = space_disc.solution(x, y + mesh.dy() / 2.0) *
+        const real err = space_disc.solution(x, y + mesh.dy() / 2.0, 0.0) *
                              space_disc.v(x, y + mesh.dy() / 2.0) -
-                         space_disc.vT_y_flux(mesh, i, j);
+                         space_disc.vT_y_flux(mesh, i, j, 0.0);
         return err;
       };
 
@@ -410,7 +413,7 @@ compute_flux_int_errors(
   auto mesh = std::make_unique<MeshT>(space_disc.x_min(), space_disc.x_max(),
                                       space_disc.y_min(), space_disc.y_max());
   // Ensure it's initialized with the solution
-  TestUtils::fill_mesh(*mesh, space_disc.solution_tuple());
+  TestUtils::fill_mesh(*mesh, space_disc.initial_solution_tuple());
 
   return mesh;
 }
@@ -435,16 +438,16 @@ compute_flux_int_errors(
       [=](const FineMesh &mesh, const int i, const int j) {
         const real x   = mesh.x_median(i);
         const real y   = mesh.y_median(j);
-        const real err = space_disc.flux_int_solution(x, y) +
-                         space_disc.flux_integral(mesh, i, j);
+        const real err = space_disc.flux_int_solution(x, y, 0.0) +
+                         space_disc.flux_integral(mesh, i, j, 0.0);
         return err;
       };
   std::function<real(const CoarseMesh &, const int i, const int j)>
       est_err_coarse = [=](const CoarseMesh &mesh, const int i, const int j) {
         const real x = mesh.x_median(i);
         const real y = mesh.y_median(j);
-        return space_disc.flux_int_solution(x, y) -
-               space_disc.flux_integral(mesh, i, j);
+        return space_disc.flux_int_solution(x, y, 0.0) -
+               space_disc.flux_integral(mesh, i, j, 0.0);
       };
 
   std::tuple<int, int, int, real, real, real> t =
@@ -518,14 +521,14 @@ TEST(part_2, source_term) {
       std::make_unique<MeshT>(space_disc.x_min(), space_disc.x_max(),
                               space_disc.y_min(), space_disc.y_max());
 
-  TestUtils::fill_mesh(*mesh, space_disc.solution_tuple());
+  TestUtils::fill_mesh(*mesh, space_disc.initial_solution_tuple());
 
   for(int i = 0; i < mesh->x_dim(); i++) {
     for(int j = 0; j < mesh->y_dim(); j++) {
       const real x = mesh->x_median(i);
       const real y = mesh->y_median(j);
-      EXPECT_NEAR(space_disc.source_sol(x, y),
-                  space_disc.source_fd(*mesh, i, j), 1e-6);
+      EXPECT_NEAR(space_disc.source_sol(x, y, 0.0),
+                  space_disc.source_fd(*mesh, i, j, 0.0), 1e-6);
     }
   }
 }
