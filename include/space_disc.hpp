@@ -130,10 +130,10 @@ class [[nodiscard]] SecondOrderCentered_Part2 {
       const noexcept {
     if(i == mesh.x_dim() - 1) {
       const real y = mesh.y_median(j);
-      return boundary_x_1(y, time);
+      return boundary_x_1(y, time) * u(x_max(), y);
     } else if(i == -1) {
       const real y = mesh.y_median(j);
-      return boundary_x_0(y, time);
+      return boundary_x_0(y, time) * u(x_min(), y);
     } else {
       return (mesh.Temp(i, j) * mesh.u_vel(i, j) +
               mesh.Temp(i + 1, j) * mesh.u_vel(i + 1, j)) /
@@ -148,10 +148,10 @@ class [[nodiscard]] SecondOrderCentered_Part2 {
       const noexcept {
     if(j == mesh.y_dim() - 1) {
       const real x = mesh.x_median(i);
-      return boundary_y_1(x, time);
+      return boundary_y_1(x, time) * v(x, y_max());
     } else if(j == -1) {
       const real x = mesh.x_median(i);
-      return boundary_y_0(x, time);
+      return boundary_y_0(x, time) * v(x, y_min());
     } else {
       return (mesh.Temp(i, j) * mesh.v_vel(i, j) +
               mesh.Temp(i, j + 1) * mesh.v_vel(i, j + 1)) /
@@ -165,11 +165,13 @@ class [[nodiscard]] SecondOrderCentered_Part2 {
                                        const int j, const real time)
       const noexcept {
     if(i == mesh.x_dim() - 1) {
-      const real y = mesh.y_median(j);
-      return boundary_dx_1(y, time);
+      const real y       = mesh.y_median(j);
+      const real T_right = 2.0 * boundary_x_1(y, time) - mesh.Temp(i, j);
+      return (T_right - mesh.Temp(i, j)) / mesh.dx();
     } else if(i == -1) {
-      const real y = mesh.y_median(j);
-      return boundary_dx_0(y, time);
+      const real y      = mesh.y_median(j);
+      const real T_left = 2.0 * boundary_x_0(y, time) - mesh.Temp(i, j + 1);
+      return (mesh.Temp(i + 1, j) - T_left) / mesh.dx();
     } else {
       return (mesh.Temp(i + 1, j) - mesh.Temp(i, j)) / mesh.dx();
     }
@@ -181,11 +183,13 @@ class [[nodiscard]] SecondOrderCentered_Part2 {
                                        const int j, const real time)
       const noexcept {
     if(j == mesh.y_dim() - 1) {
-      const real x = mesh.x_median(i);
-      return boundary_dy_1(x, time);
+      const real x       = mesh.x_median(i);
+      const real T_above = 2.0 * boundary_y_1(x, time) - mesh.Temp(i, j);
+      return (T_above - mesh.Temp(i, j)) / mesh.dy();
     } else if(j == -1) {
-      const real x = mesh.x_median(i);
-      return boundary_dy_0(x, time);
+      const real x       = mesh.x_median(i);
+      const real T_below = 2.0 * boundary_y_0(x, time) - mesh.Temp(i, j + 1);
+      return (mesh.Temp(i, j + 1) - T_below) / mesh.dy();
     } else {
       return (mesh.Temp(i, j + 1) - mesh.Temp(i, j)) / mesh.dy();
     }
@@ -381,42 +385,22 @@ class [[nodiscard]] SecondOrderCentered_Part2 {
 
   [[nodiscard]] real boundary_x_0(const real y, const real time)
       const noexcept {
-    return solution(x_min(), y, time) * u(x_min(), y);
+    return solution(x_min(), y, time);
   }
 
   [[nodiscard]] real boundary_x_1(const real y, const real time)
       const noexcept {
-    return solution(x_max(), y, time) * u(x_max(), y);
+    return solution(x_max(), y, time);
   }
 
   [[nodiscard]] real boundary_y_0(const real x, const real time)
       const noexcept {
-    return solution(x, y_min(), time) * v(x, y_min());
+    return solution(x, y_min(), time);
   }
 
   [[nodiscard]] real boundary_y_1(const real x, const real time)
       const noexcept {
-    return solution(x, y_max(), time) * v(x, y_max());
-  }
-
-  [[nodiscard]] real boundary_dx_0(const real y, const real time)
-      const noexcept {
-    return solution_dx(x_min(), y, time);
-  }
-
-  [[nodiscard]] real boundary_dx_1(const real y, const real time)
-      const noexcept {
-    return solution_dx(x_min(), y, time);
-  }
-
-  [[nodiscard]] real boundary_dy_0(const real x, const real time)
-      const noexcept {
-    return solution_dy(x, y_min(), time);
-  }
-
-  [[nodiscard]] real boundary_dy_1(const real x, const real time)
-      const noexcept {
-    return solution_dy(x, y_max(), time);
+    return solution(x, y_max(), time);
   }
 
   constexpr SecondOrderCentered_Part2(const real T_0, const real u_0,
@@ -498,10 +482,10 @@ class [[nodiscard]] SecondOrderCentered_Part1 {
       const noexcept {
     if(i == mesh.x_dim() - 1) {
       const real y = mesh.y_median(j);
-      return boundary_x_1(y, time);
+      return boundary_x_1(y, time) * u(x_max(), y);
     } else if(i == -1) {
       const real y = mesh.y_median(j);
-      return boundary_x_0(y, time);
+      return boundary_x_0(y, time) * u(x_min(), y);
     } else {
       return (mesh.Temp(i, j) * mesh.u_vel(i, j) +
               mesh.Temp(i + 1, j) * mesh.u_vel(i + 1, j)) /
@@ -516,10 +500,10 @@ class [[nodiscard]] SecondOrderCentered_Part1 {
       const noexcept {
     if(j == mesh.y_dim() - 1) {
       const real x = mesh.x_median(i);
-      return boundary_y_1(x, time);
+      return boundary_y_1(x, time) * v(x, y_max());
     } else if(j == -1) {
       const real x = mesh.x_median(i);
-      return boundary_y_0(x, time);
+      return boundary_y_0(x, time) * v(x, y_min());
     } else {
       return (mesh.Temp(i, j) * mesh.v_vel(i, j) +
               mesh.Temp(i, j + 1) * mesh.v_vel(i, j + 1)) /
@@ -533,11 +517,13 @@ class [[nodiscard]] SecondOrderCentered_Part1 {
                                        const int j, const real time)
       const noexcept {
     if(i == mesh.x_dim() - 1) {
-      const real y = mesh.y_median(j);
-      return boundary_dx_1(y, time);
+      const real y       = mesh.y_median(j);
+      const real T_right = 2.0 * boundary_x_1(y, time) - mesh.Temp(i, j);
+      return (T_right - mesh.Temp(i, j)) / mesh.dx();
     } else if(i == -1) {
-      const real y = mesh.y_median(j);
-      return boundary_dx_0(y, time);
+      const real y      = mesh.y_median(j);
+      const real T_left = 2.0 * boundary_x_0(y, time) - mesh.Temp(i + 1, j);
+      return (mesh.Temp(i + 1, j) - T_left) / mesh.dx();
     } else {
       return (mesh.Temp(i + 1, j) - mesh.Temp(i, j)) / mesh.dx();
     }
@@ -549,11 +535,13 @@ class [[nodiscard]] SecondOrderCentered_Part1 {
                                        const int j, const real time)
       const noexcept {
     if(j == mesh.y_dim() - 1) {
-      const real x = mesh.x_median(i);
-      return boundary_dy_1(x, time);
+      const real x       = mesh.x_median(i);
+      const real T_above = 2.0 * boundary_y_1(x, time) - mesh.Temp(i, j);
+      return (T_above - mesh.Temp(i, j)) / mesh.dy();
     } else if(j == -1) {
-      const real x = mesh.x_median(i);
-      return boundary_dy_0(x, time);
+      const real x       = mesh.x_median(i);
+      const real T_below = 2.0 * boundary_y_0(x, time) - mesh.Temp(i, j + 1);
+      return (mesh.Temp(i, j + 1) - T_below) / mesh.dy();
     } else {
       return (mesh.Temp(i, j + 1) - mesh.Temp(i, j)) / mesh.dy();
     }
@@ -743,22 +731,22 @@ class [[nodiscard]] SecondOrderCentered_Part1 {
 
   [[nodiscard]] real boundary_x_0(const real y, const real time)
       const noexcept {
-    return solution(x_min(), y, time) * u(x_min(), y);
+    return solution(x_min(), y, time);
   }
 
   [[nodiscard]] real boundary_x_1(const real y, const real time)
       const noexcept {
-    return solution(x_max(), y, time) * u(x_max(), y);
+    return solution(x_max(), y, time);
   }
 
   [[nodiscard]] real boundary_y_0(const real x, const real time)
       const noexcept {
-    return solution(x, y_min(), time) * v(x, y_min());
+    return solution(x, y_min(), time);
   }
 
   [[nodiscard]] real boundary_y_1(const real x, const real time)
       const noexcept {
-    return solution(x, y_max(), time) * v(x, y_max());
+    return solution(x, y_max(), time);
   }
 
   [[nodiscard]] real boundary_dx_0(const real y, const real time)

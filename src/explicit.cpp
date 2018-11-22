@@ -98,15 +98,15 @@ void plot_mesh_contour(const Solver &solver) {
 void plot_explicit_energy_evolution() {
   py::object Show = py::module::import("matplotlib.pyplot").attr("show");
 
-  constexpr int ctrl_vols_x = 256;
-  constexpr int ctrl_vols_y = 256;
+  constexpr int ctrl_vols_x = 64;
+  constexpr int ctrl_vols_y = 64;
 
   using MeshT     = Mesh<ctrl_vols_x, ctrl_vols_y>;
   using SpaceDisc = EnergyAssembly<SecondOrderCentered_Part1>;
 
   RK1_Solver<MeshT, SpaceDisc> solver;
 
-  for(int i = 0; i < 3; i++) {
+  for(int i = 0; i < 14; i++) {
     plot_mesh_surface(solver);
     solver.timestep(0.25);
   }
@@ -126,7 +126,7 @@ void plot_implicit_energy_evolution() {
 
   ImplicitEuler_Solver<MeshT, SpaceDisc> solver;
 
-  for(int i = 0; i < 3; i++) {
+  for(int i = 0; i < 14; i++) {
     plot_mesh_surface(solver);
     solver.timestep(0.1);
   }
@@ -387,14 +387,15 @@ int main(int argc, char **argv) {
   py::object Show = py::module::import("matplotlib.pyplot").attr("show");
 
   // plot_source();
-  // plot_explicit_energy_evolution();
-  // plot_implicit_energy_evolution();
-  // plot_dx_flux();
-  // plot_dy_flux();
+  plot_dx_flux();
+  plot_dy_flux();
+  plot_explicit_energy_evolution();
+  plot_implicit_energy_evolution();
   // plot_nabla2_T();
-  plot_flux_integral<64>();
-  plot_flux_integral<128>();
-  plot_flux_integral<256>();
-  Show();
+  // plot_flux_integral<16>();
+  // plot_flux_integral<32>();
+  // plot_flux_integral<64>();
+  // plot_flux_integral<128>();
+  // Show();
   return 0;
 }

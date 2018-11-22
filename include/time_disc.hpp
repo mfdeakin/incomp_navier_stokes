@@ -55,7 +55,7 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
 
   ImplicitEuler_Solver(const real T_0 = 1.0, const real u_0 = 1.0,
                        const real v_0 = 1.0, const real x_min = 0.0,
-                       const real x_max = 2.0, const real y_min = 0.0,
+                       const real x_max = 1.0, const real y_min = 0.0,
                        const real y_max = 1.0)
       : Base_Solver<_Mesh, _SpaceAssembly>(T_0, u_0, v_0, x_min, x_max, y_min,
                                            y_max) {}
@@ -160,7 +160,7 @@ class RK1_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
   using SpaceAssembly = _SpaceAssembly;
 
   RK1_Solver(const real T_0 = 1.0, const real u_0 = 1.0, const real v_0 = 1.0,
-             const real x_min = 0.0, const real x_max = 2.0,
+             const real x_min = 0.0, const real x_max = 1.0,
              const real y_min = 0.0, const real y_max = 1.0)
       : Base_Solver<_Mesh, _SpaceAssembly>(T_0, u_0, v_0, x_min, x_max, y_min,
                                            y_max),
@@ -189,7 +189,7 @@ class RK4_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
   using SpaceAssembly = _SpaceAssembly;
 
   RK4_Solver(const real T_0 = 1.0, const real u_0 = 1.0, const real v_0 = 1.0,
-             const real x_min = 0.0, const real x_max = 2.0,
+             const real x_min = 0.0, const real x_max = 1.0,
              const real y_min = 0.0, const real y_max = 1.0)
       : Base_Solver<_Mesh, _SpaceAssembly>(T_0, u_0, v_0, x_min, x_max, y_min,
                                            y_max),
