@@ -36,6 +36,10 @@ class Base_Solver {
 
   [[nodiscard]] constexpr MeshT &mesh() const noexcept { return *_cur_mesh; }
 
+  [[nodiscard]] constexpr SpaceAssembly &space_assembly() noexcept {
+    return _space_assembly;
+  }
+
  protected:
   std::unique_ptr<MeshT> _cur_mesh;
   SpaceAssembly _space_assembly;
@@ -97,7 +101,7 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
     // So just add it to our T terms
     for(int i = 0, m = 0; i < MeshT::x_dim(); i++) {
       for(int j = 0; j < MeshT::y_dim(); j++, m++) {
-				this->_cur_mesh->Temp(i, j) += sol_mesh(i, j);
+        this->_cur_mesh->Temp(i, j) += sol_mesh(i, j);
       }
     }
   }

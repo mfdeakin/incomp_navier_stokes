@@ -10,7 +10,7 @@
 // Use the curiously repeated template parameter to swap out the order of the
 // discretization in our assembly
 template <typename _SpaceDisc>
-class [[nodiscard]] EnergyAssembly : public _SpaceDisc {
+class[[nodiscard]] EnergyAssembly : public _SpaceDisc {
  public:
   // u = u_0 y \sin(\pi x)
   // v = v_0 x \cos(\pi y)
@@ -26,13 +26,18 @@ class [[nodiscard]] EnergyAssembly : public _SpaceDisc {
         (this->vT_y_flux(mesh, i, j) - this->vT_y_flux(mesh, i, j - 1)) /
         mesh.dy();
 
+    return (-x_deriv - y_deriv) +
+           _diffuse_coeff * nabla2_T_flux_integral(mesh, i, j);
+  }
+
+  template <typename MeshT>
+  [[nodiscard]] real nabla2_T_flux_integral(const MeshT &mesh, int i, int j)
+      const noexcept {
     const real x2_deriv =
         (this->dx_flux(mesh, i, j) - this->dx_flux(mesh, i - 1, j)) / mesh.dx();
     const real y2_deriv =
         (this->dy_flux(mesh, i, j) - this->dy_flux(mesh, i, j - 1)) / mesh.dy();
-
-    return (-x_deriv - y_deriv) +
-           _diffuse_coeff * (x2_deriv + y2_deriv) / (reynolds * prandtl);
+    return (x2_deriv + y2_deriv) / (reynolds * prandtl);
   }
 
   template <typename MeshT>
@@ -40,7 +45,9 @@ class [[nodiscard]] EnergyAssembly : public _SpaceDisc {
                      const real time, const real dt) const noexcept {
     for(int i = 0; i < initial.x_dim(); i++) {
       for(int j = 0; j < initial.y_dim(); j++) {
-        next.Temp(i, j) = initial.Temp(i, j) + dt * flux_integral(current, i, j);
+        next.Temp(i, j) =
+            initial.Temp(i, j) + dt * (flux_integral(current, i, j) +
+                                       this->source_fd(current, i, j));
       }
     }
   }
@@ -74,21 +81,6 @@ class [[nodiscard]] SecondOrderCentered_Part1 {
     }
   }
 
-  // Centered FV approximation to dT/dx_{i+1/2, j}
-  template <typename MeshT>
-  [[nodiscard]] constexpr real dx_flux(const MeshT &mesh, const int i,
-                                       const int j) const noexcept {
-    if(i == mesh.x_dim() - 1) {
-      const real y = mesh.y_median(j);
-      return boundary_dx_1(y);
-    } else if(i == -1) {
-      const real y = mesh.y_median(j);
-      return boundary_dx_0(y);
-    } else {
-      return (mesh.Temp(i + 1, j) - mesh.Temp(i, j)) / mesh.dx();
-    }
-  }
-
   // Centered FV approximation to T_{i, j+1/2}
   template <typename MeshT>
   [[nodiscard]] constexpr real vT_y_flux(const MeshT &mesh, const int i,
@@ -106,19 +98,19 @@ class [[nodiscard]] SecondOrderCentered_Part1 {
     }
   }
 
-  // Uses the finite difference (FD) approximations to the velocity derivatives
-  // to approximate the source term
+  // Centered FV approximation to dT/dx_{i+1/2, j}
   template <typename MeshT>
-  [[nodiscard]] constexpr real source_fd(const MeshT &mesh, const int i,
-                                         const int j) const noexcept {
-    const real u_dx = du_dx_fd(mesh, i, j);
-    const real v_dy = dv_dy_fd(mesh, i, j);
-    const real u_dy = du_dy_fd(mesh, i, j);
-    const real v_dx = dv_dx_fd(mesh, i, j);
-
-    const real cross_term = u_dy + v_dx;
-    return eckert / reynolds *
-           (2.0 * (u_dx * u_dx + v_dy * v_dy) + cross_term * cross_term);
+  [[nodiscard]] constexpr real dx_flux(const MeshT &mesh, const int i,
+                                       const int j) const noexcept {
+    if(i == mesh.x_dim() - 1) {
+      const real y = mesh.y_median(j);
+      return boundary_dx_1(y);
+    } else if(i == -1) {
+      const real y = mesh.y_median(j);
+      return boundary_dx_0(y);
+    } else {
+      return (mesh.Temp(i + 1, j) - mesh.Temp(i, j)) / mesh.dx();
+    }
   }
 
   // Centered FV approximation to dT/dy_{i, j+1/2}
@@ -134,6 +126,21 @@ class [[nodiscard]] SecondOrderCentered_Part1 {
     } else {
       return (mesh.Temp(i, j + 1) - mesh.Temp(i, j)) / mesh.dy();
     }
+  }
+
+  // Uses the finite difference (FD) approximations to the velocity derivatives
+  // to approximate the source term
+  template <typename MeshT>
+  [[nodiscard]] constexpr real source_fd(const MeshT &mesh, const int i,
+                                         const int j) const noexcept {
+    const real u_dx = du_dx_fd(mesh, i, j);
+    const real v_dy = dv_dy_fd(mesh, i, j);
+    const real u_dy = du_dy_fd(mesh, i, j);
+    const real v_dx = dv_dx_fd(mesh, i, j);
+
+    const real cross_term = u_dy + v_dx;
+    return eckert / reynolds *
+           (2.0 * (u_dx * u_dx + v_dy * v_dy) + cross_term * cross_term);
   }
 
   // Centered FD approximation to du/dx_{i, j}
@@ -226,13 +233,24 @@ class [[nodiscard]] SecondOrderCentered_Part1 {
 
   [[nodiscard]] real flux_int_solution(const real x, const real y)
       const noexcept {
-    const real u_dt_dx_fi =
+    const real vel_nabla_t_fi = flux_int_vel_nabla_T_sol(x, y);
+    const real diffusion_fi   = flux_int_nabla2_T_sol(x, y);
+    return vel_nabla_t_fi + diffusion_fi;
+  }
+
+  [[nodiscard]] real flux_int_vel_nabla_T_sol(const real x, const real y)
+      const noexcept {
+    const real u_dt_dy_fi =
         pi * u_0() * std::cos(2.0 * pi * x) * y * std::sin(pi * y);
     const real v_dt_dy_fi =
         pi * v_0() * x * std::cos(pi * x) * std::cos(2.0 * pi * y);
-    const real diffusion_fi = (2.0 * pi * pi / (reynolds * prandtl)) *
-                              std::cos(pi * x) * std::sin(pi * y);
-    return -T_0() * (u_dt_dx_fi + v_dt_dy_fi + diffusion_fi);
+    return -T_0() * (u_dt_dy_fi + v_dt_dy_fi);
+  }
+
+  [[nodiscard]] real flux_int_nabla2_T_sol(const real x, const real y)
+      const noexcept {
+    return -T_0() * (2.0 * pi * pi / (reynolds * prandtl)) * std::cos(pi * x) *
+           std::sin(pi * y);
   }
 
   // Use the exact solutions to implement the boundary conditions and also check
