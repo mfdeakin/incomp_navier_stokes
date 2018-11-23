@@ -62,29 +62,50 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
 
   void timestep(const real dt) {
     // First we need to construct our vector to use with the Thomas algorithm
-    constexpr int vec_dim = (MeshT::x_dim()) * (MeshT::y_dim());
-    using VecT            = ND_Array<real, vec_dim>;
-    using MtxT            = ND_Array<real, vec_dim, 3>;
+    using VecMeshX  = ND_Array<real, MeshT::x_dim() + 2, MeshT::y_dim()>;
+    using VecMeshXT = ND_Array<real, VecMeshX::extent(1), VecMeshX::extent(0)>;
+
+    constexpr int vec_dim = VecMeshX::extent(0) * VecMeshX::extent(1);
+    using SolVec          = ND_Array<real, vec_dim>;
+
+    using Mtx      = ND_Array<real, vec_dim, 3>;
+    using MtxMesh  = ND_Array<real, VecMeshX::extent(0), VecMeshX::extent(1), 3>;
+    using MtxMeshT = ND_Array<real, VecMeshX::extent(1), VecMeshX::extent(0), 3>;
 
     const MeshT &mesh                   = *this->_cur_mesh;
     const SpaceAssembly &space_assembly = this->space_assembly();
 
-    // Fill MtxT with our Dx Terms
-    // Fill VecT with the source terms and the flux integral
+    // Fill Mtx with our Dx Terms
+    // Fill SolVec with the source terms and the flux integral
     // Then solve for the solution to our y vector
-    // Then fill MtxT with our Dy Terms
+    // Then fill Mtx with our Dy Terms
     // And solve for our dT vector
-    typename MeshT::ControlVolumes sol_mesh;
-    VecT &sol_dx = sol_mesh.template reshape<VecT>();
-    MtxT dx;
+    SolVec sol_dx;
+		VecMeshX &sol_dx_mesh = sol_dx.template reshape<VecMeshX>();
 
-    for(int i = 0, m = 0; i < MeshT::x_dim(); i++) {
-      for(int j = 0; j < MeshT::y_dim(); j++, m++) {
-        sol_mesh(i, j) =
+    Mtx dx;
+    MtxMeshT &dx_mesh = dx.template reshape<MtxMeshT>();
+
+    // Enforce our boundary conditions
+    for(int j = 0; j < MeshT::y_dim(); j++) {
+      sol_dx_mesh(0, j)                  = 0.0;
+      sol_dx_mesh(MeshT::x_dim() + 1, j) = 0.0;
+
+      dx_mesh(j, 0, 0) = 0.0;
+      dx_mesh(j, 0, 1) = 1.0;
+      dx_mesh(j, 0, 2) = 1.0;
+
+      dx_mesh(j, MtxMeshT::extent(1) - 1, 0) = 1.0;
+      dx_mesh(j, MtxMeshT::extent(1) - 1, 1) = 1.0;
+      dx_mesh(j, MtxMeshT::extent(1) - 1, 2) = 0.0;
+    }
+    for(int i = 0; i < MeshT::x_dim(); i++) {
+      for(int j = 0; j < MeshT::y_dim(); j++) {
+        sol_dx_mesh(i + 1, j) =
             (space_assembly.flux_integral(mesh, i, j, this->time()) +
              space_assembly.source_fd(mesh, i, j, this->time())) *
             dt;
-        assert(!std::isnan(sol_mesh(i, j)));
+        assert(!std::isnan(sol_dx_mesh(i + 1, j)));
         // (-u_{i - 1, j} / (2.0 \Delta x) - 1.0 / (Re * Pr * \Delta x^2))
         // \delta T_{i - 1, j} \Delta t
 
@@ -93,23 +114,28 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
 
         // (u_{i + 1, j} / (2.0 \Delta x) - 1.0 / (Re * Pr * \Delta x^2)) \delta
         // T_{i + 1, j} \Delta t
-        dx(m, 0) = space_assembly.Dx_m1(mesh, i, j) * dt;
-        dx(m, 1) = space_assembly.Dx_0(mesh, i, j) * dt + 1.0;
-        dx(m, 2) = space_assembly.Dx_p1(mesh, i, j) * dt;
-        if(m != 0) {
-          assert(!std::isnan(dx(m, 0)));
-        }
-        assert(!std::isnan(dx(m, 1)));
-        if(m != vec_dim - 1) {
-          assert(!std::isnan(dx(m, 2)));
-        }
+        dx_mesh(j + 1, i, 0) = space_assembly.Dx_m1(mesh, i + 1, j) * dt;
+        dx_mesh(j + 1, i, 1) = space_assembly.Dx_0(mesh, i + 1, j) * dt + 1.0;
+        dx_mesh(j + 1, i, 2) = space_assembly.Dx_p1(mesh, i + 1, j) * dt;
       }
     }
     solve_thomas(dx, sol_dx);
 
-    ND_Array<real, MeshT::y_dim(), MeshT::x_dim()> transpose_sol;
+    VecMeshXT transpose_sol;
 
-    MtxT dy;
+    Mtx dy;
+    MtxMesh &dy_mesh = dy.template reshape<MtxMesh>();
+    // Enforce our boundary conditions
+    for(int i = 0; i < MeshT::x_dim(); i++) {
+      dy_mesh(i, 0, 0) = 0.0;
+      dy_mesh(i, 0, 1) = 1.0;
+      dy_mesh(i, 0, 2) = 1.0;
+
+      dy_mesh(i, MtxMesh::extent(0) - 1, 0) = 1.0;
+      dy_mesh(i, MtxMesh::extent(0) - 1, 1) = 1.0;
+      dy_mesh(i, MtxMesh::extent(0) - 1, 2) = 0.0;
+    }
+
     for(int i = 0; i < MeshT::x_dim(); i++) {
       for(int j = 0; j < MeshT::y_dim(); j++) {
         // Note that since the Thomas algorithm solves a tridiagonal system,
@@ -117,13 +143,14 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
         // tridiagonal ie, go from increasing the x index to increasing the y
         // index. This is easiest to achieve by taking the transpose of the
         // solution when looking at it like a matrix
-        assert(!std::isnan(sol_mesh(i, j)));
-        transpose_sol(j, i) = sol_mesh(i, j);
+        assert(!std::isnan(sol_dx_mesh(i, j)));
+        transpose_sol(j, i) = sol_dx_mesh(i, j);
       }
     }
 
     for(int i = 0, m = 0; i < MeshT::x_dim(); i++) {
       for(int j = 0; j < MeshT::y_dim(); j++, m++) {
+        // These terms come from the following equation:
         // (-v_{i, j - 1} / (2.0 \Delta y) - 1.0 / (Re * Pr * \Delta y^2))
         // \delta T_{i, j - 1} \Delta t (1.0 + 2.0 / (Re * Pr) * (\Delta x^{-2}
         // + \Delta y^{-2}) \Delta t) \delta T_{i, j} (v_{i, j + 1} / (2.0
@@ -137,7 +164,7 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
         assert(!std::isnan(dy(m, 2)));
       }
     }
-    VecT &sol_dy = transpose_sol.template reshape<VecT>();
+    SolVec &sol_dy = transpose_sol.template reshape<SolVec>();
     solve_thomas(dy, sol_dy);
 
     // sol now contains our dT terms
@@ -147,9 +174,11 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
     for(int i = 0, m = 0; i < MeshT::x_dim(); i++) {
       for(int j = 0; j < MeshT::y_dim(); j++, m++) {
         assert(!std::isnan(transpose_sol(j, i)));
-        this->_cur_mesh->Temp(i, j) += transpose_sol(j, i);
+        this->_cur_mesh->Temp(i, j) -= transpose_sol(j, i);
       }
     }
+
+    this->_time += dt;
   }
 };
 
@@ -166,10 +195,22 @@ class RK1_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
                                            y_max),
         _partial_mesh(std::make_unique<MeshT>(x_min, x_max, y_min, y_max)) {}
 
-  void timestep(const real cfl) {
+  void timestep(const real sigma_ratio) {
+    static bool once = false;
+    auto &mesh       = *(this->_cur_mesh);
+    // |sigma| = |1 + \lambda \Delta t|
+    // Approximate \lambda with just the second derivative term,
+    // since it will dominate with small \Delta x.
+    // Then |\sigma| \leq 1 + (4 / (Re * Pr)(\Delta t / \Delta x^2) = 1
+    // So our maximum timestep is \Delta x^2 * Re * Pr / 4
+
     const real dt =
-        cfl * this->_cur_mesh->dx() /
-        std::max(this->_space_assembly.u_0(), this->_space_assembly.v_0());
+        sigma_ratio * mesh.dx() * mesh.dx() * reynolds * prandtl / 4.0;
+
+    if(!once) {
+      printf("RK1 dt: % .6e\n", dt);
+      once = true;
+    }
 
     this->_space_assembly.flux_assembly(*(this->_cur_mesh), *(this->_cur_mesh),
                                         *_partial_mesh, this->time(), dt);
@@ -196,30 +237,36 @@ class RK4_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
         _partial_mesh_1(std::make_unique<MeshT>(x_min, x_max, y_min, y_max)),
         _partial_mesh_2(std::make_unique<MeshT>(x_min, x_max, y_min, y_max)) {}
 
-  void timestep(const real cfl) {
-    const real dt =
-        cfl * this->_cur_mesh->dx() /
-        std::max(this->_space_assembly.u_0(), this->_space_assembly.v_0());
+  void timestep(const real sigma_ratio) {
+    auto &mesh = *(this->_cur_mesh);
+    // Approximate the amplification factor as
+    // 4^3 (\Delta t / \Delta x^2)^4 / (6 * Re * Pr) = sigma_mag
+    // where sigma_mag = sigma_ratio^4
+    // We can make this approximation because for small \Delta x,
+    // the other terms of the amplification factor will be small in comparison
+    // Then solve for \Delta t
+    const real constants =
+        std::sqrt(std::sqrt(6.0 * reynolds * prandtl / 64.0));
+    const real ds = std::max(mesh.dx(), mesh.dy());
+    const real dt = sigma_ratio * constants * (ds * ds);
 
-    this->_space_assembly.flux_assembly(*(this->_cur_mesh), *(this->_cur_mesh),
-                                        *_partial_mesh_1, this->time(),
-                                        dt / 4.0);
+    this->_space_assembly.flux_assembly(mesh, mesh, *_partial_mesh_1,
+                                        this->time(), dt / 4.0);
 
     // Second stage
     // compute w(2) based on w(1) and the current timestep
-    this->_space_assembly.flux_assembly(*(this->_cur_mesh), *_partial_mesh_1,
+    this->_space_assembly.flux_assembly(mesh, *_partial_mesh_1,
                                         *_partial_mesh_2,
                                         this->time() + dt / 2.0, dt / 3.0);
 
     // Third stage
-    this->_space_assembly.flux_assembly(*(this->_cur_mesh), *_partial_mesh_2,
+    this->_space_assembly.flux_assembly(mesh, *_partial_mesh_2,
                                         *_partial_mesh_1,
                                         this->time() + dt / 2.0, dt / 2.0);
 
     // Fourth stage
-    this->_space_assembly.flux_assembly(*(this->_cur_mesh), *_partial_mesh_1,
-                                        *_partial_mesh_2,
-                                        this->time() + dt / 2.0, dt);
+    this->_space_assembly.flux_assembly(
+        mesh, *_partial_mesh_1, *_partial_mesh_2, this->time() + dt / 2.0, dt);
 
     std::swap(this->_cur_mesh, _partial_mesh_2);
     this->_time += dt;
