@@ -4,6 +4,7 @@
 #include "space_disc.hpp"
 #include "time_disc.hpp"
 
+#include <chrono>
 #include <string>
 
 #include <pybind11/embed.h>
@@ -15,6 +16,7 @@ using namespace py::literals;
 
 template <typename Solver>
 void plot_mesh_surface(const Solver &solver) {
+  // Imports needd for plotting the surface
   py::object Figure = py::module::import("matplotlib.pyplot").attr("figure");
   py::object Plot   = py::module::import("matplotlib.pyplot").attr("plot");
   py::object Title  = py::module::import("matplotlib.pyplot").attr("title");
@@ -31,6 +33,7 @@ void plot_mesh_surface(const Solver &solver) {
   std::vector<real> y_vals;
   std::vector<real> z_vals;
 
+  // Aggregate the values for plotting
   for(int i = 0; i < mesh.x_dim(); i++) {
     for(int j = 0; j < mesh.y_dim(); j++) {
       x_vals.push_back(mesh.x_median(i));
@@ -50,6 +53,7 @@ void plot_mesh_surface(const Solver &solver) {
 
 template <typename Solver>
 void plot_mesh_contour(const Solver &solver) {
+  // Imports needed for the plotting
   py::object Figure  = py::module::import("matplotlib.pyplot").attr("figure");
   py::object Contour = py::module::import("matplotlib.pyplot").attr("contour");
   py::object Contourf =
@@ -71,6 +75,7 @@ void plot_mesh_contour(const Solver &solver) {
   real min_z = std::numeric_limits<real>::infinity();
   real max_z = -std::numeric_limits<real>::infinity();
 
+  // Aggregate the values for plotting
   for(int i = 0; i < mesh.x_dim(); i++) {
     for(int j = 0; j < mesh.y_dim(); j++) {
       x_vals.push_back(mesh.x_median(i));
@@ -94,47 +99,106 @@ void plot_mesh_contour(const Solver &solver) {
   CLabel(cs);
 }
 
-// Look at norms of error in the flux
-void plot_explicit_energy_evolution() {
-  py::object Show = py::module::import("matplotlib.pyplot").attr("show");
+template <typename Solver>
+void time_explicit_energy_evolution() {
+  Solver solver(1.0, 3.0, 0.0, 0.0, 5.0, 0.0, 1.0);
 
-  constexpr int ctrl_vols_x = 64;
-  constexpr int ctrl_vols_y = 64;
+  // Time how long it takes to get to t=1s at ~80% maximum timestep
+  auto start = std::chrono::high_resolution_clock::now();
+  while(solver.time() < 1.0) {
+    solver.timestep(0.8);
+  }
+  auto end = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double, std::milli> diff = end - start;
+  printf(
+      "Time to reach t=1.0 with the RK4 explicit solver at 80%% of the maximum "
+      "stable timestep with a %d by %d mesh: % .6e ms\n",
+      Solver::MeshT::x_dim(), Solver::MeshT::y_dim(), diff.count());
+}
 
+template <int ctrl_vols_x, int ctrl_vols_y>
+void time_implicit_energy_evolution() {
   using MeshT     = Mesh<ctrl_vols_x, ctrl_vols_y>;
-  using SpaceDisc = EnergyAssembly<SecondOrderCentered_Part1>;
+  using SpaceDisc = EnergyAssembly<SecondOrderCentered_Part5>;
 
-  RK1_Solver<MeshT, SpaceDisc> solver;
+  ImplicitEuler_Solver<MeshT, SpaceDisc> solver(1.0, 3.0, 0.0, 0.0, 5.0, 0.0,
+                                                1.0);
 
-  for(int i = 0; i < 14; i++) {
-    plot_mesh_surface(solver);
-    solver.timestep(0.25);
+  auto start = std::chrono::high_resolution_clock::now();
+  while(solver.time() < 1.0) {
+    solver.timestep(0.1);
+  }
+  auto end = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double, std::milli> diff = end - start;
+  printf(
+      "Time to reach t=1.0 with the implicit euler solver with a %d by %d "
+      "mesh: % .6e ms\n",
+      ctrl_vols_x, ctrl_vols_y, diff.count());
+}
+
+template <int ctrl_vols_x, int ctrl_vols_y, typename SpaceDisc>
+void plot_explicit_energy_evolution() {
+  py::object Show  = py::module::import("matplotlib.pyplot").attr("show");
+  py::object Title = py::module::import("matplotlib.pyplot").attr("title");
+
+  using MeshT    = Mesh<ctrl_vols_x, ctrl_vols_y>;
+  using Assembly = EnergyAssembly<SpaceDisc>;
+
+  RK4_Solver<MeshT, Assembly> solver(1.0, 3.0, 0.0, 0.0, 5.0, 0.0, 1.0);
+  real prev_time = 0.0;
+
+  while(solver.time() < 1.0) {
+    if(std::ceil(prev_time * 10.0) / 10.0 < solver.time()) {
+      plot_mesh_surface(solver);
+      std::stringstream ss;
+      ss << "Explicit Energy at t=" << solver.time() << " for " << ctrl_vols_x
+         << " x " << ctrl_vols_y;
+      Title(ss.str());
+      prev_time = solver.time();
+    }
+    // Note that for small enough \Delta x and \Delta y, this cfl number will
+    // eventually become too large This is because the maximum stable timestep
+    // depends on \Delta x^2 rather than \Delta x
+    solver.timestep(0.80);
   }
 
   plot_mesh_surface(solver);
+  std::stringstream ss;
+  ss << "Explicit Energy at t=" << solver.time() << " for " << ctrl_vols_x
+     << " x " << ctrl_vols_y;
+  Title(ss.str());
   Show();
 }
 
+template <int ctrl_vols_x, int ctrl_vols_y, typename SpaceDisc>
 void plot_implicit_energy_evolution() {
-  py::object Show = py::module::import("matplotlib.pyplot").attr("show");
+  py::object Show  = py::module::import("matplotlib.pyplot").attr("show");
+  py::object Title = py::module::import("matplotlib.pyplot").attr("title");
 
-  constexpr int ctrl_vols_x = 256;
-  constexpr int ctrl_vols_y = 256;
+  using MeshT    = Mesh<ctrl_vols_x, ctrl_vols_y>;
+  using Assembly = EnergyAssembly<SpaceDisc>;
 
-  using MeshT     = Mesh<ctrl_vols_x, ctrl_vols_y>;
-  using SpaceDisc = EnergyAssembly<SecondOrderCentered_Part1>;
+  ImplicitEuler_Solver<MeshT, Assembly> solver(1.0, 3.0, 0.0, 0.0, 5.0, 0.0,
+                                               1.0);
 
-  ImplicitEuler_Solver<MeshT, SpaceDisc> solver;
-
-  for(int i = 0; i < 14; i++) {
+  for(int i = 0; i < 10; i++) {
+    std::stringstream ss;
+    ss << "Implicit Energy at t=" << solver.time() << " for " << ctrl_vols_x
+       << " x " << ctrl_vols_y;
     plot_mesh_surface(solver);
+    Title(ss.str());
     solver.timestep(0.1);
   }
 
   plot_mesh_surface(solver);
+  std::stringstream ss;
+  ss << "Implicit Energy at t=" << solver.time() << " for " << ctrl_vols_x
+     << " x " << ctrl_vols_y;
+  Title(ss.str());
   Show();
 }
 
+// Look at norms of error in the flux
 void plot_dx_flux() {
   py::object Show = py::module::import("matplotlib.pyplot").attr("show");
 
@@ -387,15 +451,58 @@ int main(int argc, char **argv) {
   py::object Show = py::module::import("matplotlib.pyplot").attr("show");
 
   // plot_source();
-  plot_dx_flux();
-  plot_dy_flux();
-  plot_explicit_energy_evolution();
-  plot_implicit_energy_evolution();
+  // plot_dx_flux();
+  // plot_dy_flux();
   // plot_nabla2_T();
+
   // plot_flux_integral<16>();
   // plot_flux_integral<32>();
   // plot_flux_integral<64>();
   // plot_flux_integral<128>();
   // Show();
+
+  // plot_implicit_energy_evolution<25, 10>();
+  // plot_implicit_energy_evolution<50, 20>();
+  // plot_implicit_energy_evolution<75, 30>();
+  // plot_implicit_energy_evolution<100, 40>();
+  // plot_implicit_energy_evolution<150, 60>();
+  plot_explicit_energy_evolution<200, 80, SecondOrderCentered_Part5>();
+  plot_implicit_energy_evolution<200, 80, SecondOrderCentered_Part5>();
+
+  plot_explicit_energy_evolution<200, 80, SecondOrderCentered_Part7>();
+  plot_implicit_energy_evolution<200, 80, SecondOrderCentered_Part7>();
+
+  time_explicit_energy_evolution<
+      RK1_Solver<Mesh<25, 10>, EnergyAssembly<SecondOrderCentered_Part7> > >();
+  time_explicit_energy_evolution<
+      RK1_Solver<Mesh<50, 20>, EnergyAssembly<SecondOrderCentered_Part7> > >();
+  time_explicit_energy_evolution<
+      RK1_Solver<Mesh<75, 30>, EnergyAssembly<SecondOrderCentered_Part7> > >();
+  time_explicit_energy_evolution<
+      RK1_Solver<Mesh<100, 40>, EnergyAssembly<SecondOrderCentered_Part7> > >();
+  time_explicit_energy_evolution<
+      RK1_Solver<Mesh<150, 60>, EnergyAssembly<SecondOrderCentered_Part7> > >();
+  time_explicit_energy_evolution<
+      RK1_Solver<Mesh<200, 80>, EnergyAssembly<SecondOrderCentered_Part7> > >();
+
+  time_explicit_energy_evolution<
+      RK4_Solver<Mesh<25, 10>, EnergyAssembly<SecondOrderCentered_Part7> > >();
+  time_explicit_energy_evolution<
+      RK4_Solver<Mesh<50, 20>, EnergyAssembly<SecondOrderCentered_Part7> > >();
+  time_explicit_energy_evolution<
+      RK4_Solver<Mesh<75, 30>, EnergyAssembly<SecondOrderCentered_Part7> > >();
+  time_explicit_energy_evolution<
+      RK4_Solver<Mesh<100, 40>, EnergyAssembly<SecondOrderCentered_Part7> > >();
+  time_explicit_energy_evolution<
+      RK4_Solver<Mesh<150, 60>, EnergyAssembly<SecondOrderCentered_Part7> > >();
+  time_explicit_energy_evolution<
+      RK4_Solver<Mesh<200, 80>, EnergyAssembly<SecondOrderCentered_Part7> > >();
+
+  time_implicit_energy_evolution<25, 10>();
+  time_implicit_energy_evolution<50, 20>();
+  time_implicit_energy_evolution<75, 30>();
+  time_implicit_energy_evolution<100, 40>();
+  time_implicit_energy_evolution<150, 60>();
+  time_implicit_energy_evolution<200, 80>();
   return 0;
 }
