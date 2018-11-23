@@ -6,7 +6,7 @@
 \usepackage{amsmath}
 \usepackage{textcomp}
 
-\title{Wave Equation Simulation}
+\title{Incompressible Energy Equation Simulation}
 \author{Michael Deakin}
 
 \begin{document}
@@ -31,19 +31,65 @@ That these are not decreasing with increasing mesh size suggests the error is co
 Combining these into the flux integral is also found to have an average accuracy order of convergence of $2$, as expected.
 The source term was implemented as a finite difference discretization,
 it was also found to have 2nd order convergence, with L1 errors of $0.05$.
+
+Figures of the errors in the spatial discretization calculations are shown in Figure \ref{space_errs}.
+All of these look reasonable, though the error at the boundaries of the $\frac{dT}{dx}$ flux is somewhat concerning,
+as the other errors are in the range of $\text{e}-5$, rather than $\text{e}-2$.
+The code appears correct, though, so it's not clear what the cause is.
+
+\begin{figure}[h]
+  \centering{
+    \includegraphics[width=0.45\textwidth]{figs/x_flux_err.png}
+    \includegraphics[width=0.45\textwidth]{figs/y_flux_err.png}
+    \includegraphics[width=0.45\textwidth]{figs/dt_dx_flux_err.png}
+    \includegraphics[width=0.45\textwidth]{figs/dt_dy_flux_err.png}
+    \includegraphics[width=0.45\textwidth]{figs/flux_int_32_err.png}
+    \includegraphics[width=0.45\textwidth]{figs/source_err.png}
+  }
+  \label{space_errs}
+  \caption{{\bf From left to right, top to bottom:} Errors in the $T_x$, $T_y$,
+    $\frac{dT}{dx}$ and $\frac{dT}{dy}$ fluxes, the flux integral, and the source term}
+\end{figure}
 \end{section}
 
 \begin{section}{Time Discretization}
 Three time discretizations were implemented: RK1, RK4, and Implicit Euler.
-As previously mentioned, none of these were stable, potentially due to an error with the spatial boundary condition implementations, or due to incompatible boundary conditions.
+The boundary conditions for the implicit solver are not implemented correctly yet.
 As a result, it's clearly not (currently!) second order accurate.
-Results of the first obviously unstable timestep are shown
+The explicit solver seems to be stable for the boundary conditions
+(assuming they're implemented correctly) imposed by question 5 and 7,
+figures of the fully developed profile are in Figures \ref{exp_part5} and \ref{exp_part7}.
 
-Instead, since the correct implementation shouldn't be substantially different, and should have the same performance, I list the amount of time for it takes for each solver to compute out to $t = 1 s$ with a timestep that's about $80\%$ of the maximum stable step in Table \ref{timing}.
+\begin{figure}[ht]
+  \centering{
+    \includegraphics[width=0.6\textwidth]{figs/explicit_p5_0_0.png}
+    \includegraphics[width=0.6\textwidth]{figs/explicit_p5_1_0.png}
+    \includegraphics[width=0.6\textwidth]{figs/explicit_p5_16_0.png}
+  }
+  \caption{Temperature field from the explicit solver for the boundaries in problem 5 at times $t = 0, 1, 16$}
+  \label{exp_part5}
+\end{figure}
+
+\begin{figure}[ht]
+  \centering{
+    \includegraphics[width=0.6\textwidth]{figs/explicit_p7_0_0.png}
+    \includegraphics[width=0.6\textwidth]{figs/explicit_p7_1_0.png}
+    \includegraphics[width=0.6\textwidth]{figs/explicit_p7_16_0.png}
+  }
+  \caption{Temperature field from the explicit solver for the boundaries in problem 7 at times $t = 0, 1, 16$}
+  \label{exp_part7}
+\end{figure}
+
+I do have performance measurements for my implicit solver, however.
+While they do not reflect what the correct implementation would be,
+they should be approximately correct,
+since the correct implementation shouldn't be substantially different.
+I list the amount of time for it takes for each solver to compute out
+to $t = 1 s$ with a timestep that's about $80\%$ of the maximum stable step in Table \ref{timing}.
 
 \begin{table}[ht]
   \centering{
-    \begin{tabular}{|c|c|c|}
+    \begin{tabular}{|c|c|c|c|}
       \hline
       Solver & Mesh Size & Timestep & Time (ms)\\
       \hline
@@ -74,6 +120,11 @@ Instead, since the correct implementation shouldn't be substantially different, 
   \label{timing}
 \end{table}
 
+As expected, the timestep restriction causes the explicit solver to become extremely expensive as the mesh is refined,
+while the implicit methods required time only increases linearly with the mesh size.
+
+For the next project, I should reuse more of my previous code and focus on implementing features even when there are issues with the prior stages,
+in addition to using a time dilation machine for more time.
 \end{section}
 
 \end{document}

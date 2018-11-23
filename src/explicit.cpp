@@ -147,8 +147,8 @@ void plot_explicit_energy_evolution() {
   RK4_Solver<MeshT, Assembly> solver(1.0, 3.0, 0.0, 0.0, 5.0, 0.0, 1.0);
   real prev_time = 0.0;
 
-  while(solver.time() < 1.0) {
-    if(std::ceil(prev_time * 10.0) / 10.0 < solver.time()) {
+  while(solver.time() < 16.0) {
+    if(std::ceil(prev_time * 0.625) / 0.625 < solver.time()) {
       plot_mesh_surface(solver);
       std::stringstream ss;
       ss << "Explicit Energy at t=" << solver.time() << " for " << ctrl_vols_x
@@ -199,6 +199,109 @@ void plot_implicit_energy_evolution() {
 }
 
 // Look at norms of error in the flux
+void plot_x_flux() {
+  py::object Show = py::module::import("matplotlib.pyplot").attr("show");
+
+  constexpr int ctrl_vols_x = 256;
+  constexpr int ctrl_vols_y = 256;
+
+  using MeshT         = Mesh<ctrl_vols_x, ctrl_vols_y>;
+  using SpaceAssembly = EnergyAssembly<SecondOrderCentered_Part1>;
+  using RK4           = RK4_Solver<MeshT, SpaceAssembly>;
+  using RK4Flux = RK4_Solver<Mesh<ctrl_vols_x + 1, ctrl_vols_y>, SpaceAssembly>;
+  RK4 solver;
+  RK4Flux solver_fake;
+  RK4Flux solver_fake_error;
+  RK4Flux solver_fake_actual;
+  SpaceAssembly &space_assembly = solver.space_assembly();
+  MeshT &initial                = solver.mesh();
+
+  for(int i = -1; i < initial.x_dim(); i++) {
+    for(int j = 0; j < initial.y_dim(); j++) {
+      const real x = initial.x_max(i);
+      const real y = initial.y_median(j);
+
+      solver_fake.mesh().Temp(i + 1, j) =
+          space_assembly.uT_x_flux(initial, i, j, 0.0);
+      solver_fake_actual.mesh().Temp(i + 1, j) =
+          space_assembly.solution(x, y, 0.0) * space_assembly.u(x, y);
+      solver_fake_error.mesh().Temp(i + 1, j) =
+          space_assembly.uT_x_flux(initial, i, j, 0.0) -
+          space_assembly.solution(x, y, 0.0) * space_assembly.u(x, y);
+    }
+  }
+
+  py::object Title = py::module::import("matplotlib.pyplot").attr("title");
+  // plot_mesh_contour(solver);
+  // Title("Initial Conditions");
+
+  // plot_mesh_contour(solver_fake);
+  // Title("dT/dx FV");
+
+  // plot_mesh_contour(solver_fake_actual);
+  // Title("dT/dx Actual");
+
+  // plot_mesh_contour(solver_fake_error);
+  // Title("dT/dx Flux Error");
+
+  plot_mesh_surface(solver_fake_error);
+  Title("T_x Flux Error");
+  Show();
+}
+void plot_y_flux() {
+  py::object Show = py::module::import("matplotlib.pyplot").attr("show");
+
+  constexpr int ctrl_vols_x = 256;
+  constexpr int ctrl_vols_y = 256;
+
+  using MeshT         = Mesh<ctrl_vols_x, ctrl_vols_y>;
+  using SpaceAssembly = EnergyAssembly<SecondOrderCentered_Part1>;
+  using RK4           = RK4_Solver<MeshT, SpaceAssembly>;
+  using RK4Flux = RK4_Solver<Mesh<ctrl_vols_x, ctrl_vols_y + 1>, SpaceAssembly>;
+  RK4 solver;
+  RK4Flux solver_fake;
+  RK4Flux solver_fake_error;
+  RK4Flux solver_fake_actual;
+  SpaceAssembly &space_assembly = solver.space_assembly();
+  MeshT &initial                = solver.mesh();
+
+	printf("Boundaries: % .3e, % .3e\n", space_assembly.y_min(), space_assembly.y_max());
+	printf("Boundaries 0: % .3e, % .3e\n", space_assembly.boundary_y_0(0.25, 0.0), space_assembly.boundary_y_0(0.75, 0.0));
+	printf("Boundaries 1: % .3e, % .3e\n", space_assembly.boundary_y_1(0.25, 0.0), space_assembly.boundary_y_1(0.75, 0.0));
+
+  for(int i = 0; i < initial.x_dim(); i++) {
+    for(int j = -1; j < initial.y_dim(); j++) {
+      const real x = initial.x_median(i);
+      const real y = initial.y_max(j);
+
+      solver_fake.mesh().Temp(i, j + 1) =
+          space_assembly.uT_x_flux(initial, i, j, 0.0);
+      solver_fake_actual.mesh().Temp(i, j + 1) =
+          space_assembly.solution(x, y, 0.0) * space_assembly.v(x, y);
+      solver_fake_error.mesh().Temp(i, j + 1) =
+          space_assembly.vT_y_flux(initial, i, j, 0.0) -
+          space_assembly.solution(x, y, 0.0) * space_assembly.v(x, y);
+    }
+  }
+
+  py::object Title = py::module::import("matplotlib.pyplot").attr("title");
+  // plot_mesh_contour(solver);
+  // Title("Initial Conditions");
+
+  // plot_mesh_contour(solver_fake);
+  // Title("dT/dx FV");
+
+  // plot_mesh_contour(solver_fake_actual);
+  // Title("dT/dx Actual");
+
+  // plot_mesh_contour(solver_fake_error);
+  // Title("dT/dx Flux Error");
+
+  plot_mesh_surface(solver_fake_error);
+  Title("T_y Flux Error");
+  Show();
+}
+
 void plot_dx_flux() {
   py::object Show = py::module::import("matplotlib.pyplot").attr("show");
 
@@ -450,27 +553,29 @@ int main(int argc, char **argv) {
 
   py::object Show = py::module::import("matplotlib.pyplot").attr("show");
 
-  // plot_source();
-  // plot_dx_flux();
-  // plot_dy_flux();
-  // plot_nabla2_T();
+  plot_source();
+  plot_x_flux();
+  plot_y_flux();
+  plot_dx_flux();
+  plot_dy_flux();
+  plot_nabla2_T();
 
-  // plot_flux_integral<16>();
-  // plot_flux_integral<32>();
-  // plot_flux_integral<64>();
-  // plot_flux_integral<128>();
-  // Show();
+  plot_flux_integral<16>();
+  plot_flux_integral<32>();
+  plot_flux_integral<64>();
+  plot_flux_integral<128>();
+  Show();
 
   // plot_implicit_energy_evolution<25, 10>();
   // plot_implicit_energy_evolution<50, 20>();
   // plot_implicit_energy_evolution<75, 30>();
   // plot_implicit_energy_evolution<100, 40>();
   // plot_implicit_energy_evolution<150, 60>();
-  plot_explicit_energy_evolution<200, 80, SecondOrderCentered_Part5>();
-  plot_implicit_energy_evolution<200, 80, SecondOrderCentered_Part5>();
+  // plot_explicit_energy_evolution<200, 80, SecondOrderCentered_Part5>();
+  // plot_implicit_energy_evolution<200, 80, SecondOrderCentered_Part5>();
 
-  plot_explicit_energy_evolution<200, 80, SecondOrderCentered_Part7>();
-  plot_implicit_energy_evolution<200, 80, SecondOrderCentered_Part7>();
+  // plot_explicit_energy_evolution<200, 80, SecondOrderCentered_Part7>();
+  // plot_implicit_energy_evolution<200, 80, SecondOrderCentered_Part7>();
 
   time_explicit_energy_evolution<
       RK1_Solver<Mesh<25, 10>, EnergyAssembly<SecondOrderCentered_Part7> > >();
