@@ -1,4 +1,5 @@
 
+#include "boundaries.hpp"
 #include "constants.hpp"
 #include "mesh.hpp"
 #include "space_disc.hpp"
@@ -118,11 +119,12 @@ void time_explicit_energy_evolution() {
 
 template <int ctrl_vols_x, int ctrl_vols_y>
 void time_implicit_energy_evolution() {
-  using MeshT     = Mesh<ctrl_vols_x, ctrl_vols_y>;
-  using SpaceDisc = EnergyAssembly<SecondOrderCentered_Part5>;
+  using MeshT      = Mesh<ctrl_vols_x, ctrl_vols_y>;
+  using SpaceDisc  = EnergyAssembly<SecondOrderCentered>;
+  using Boundaries = BConds_Part5;
 
-  ImplicitEuler_Solver<MeshT, SpaceDisc> solver(1.0, 3.0, 0.0, 0.0, 5.0, 0.0,
-                                                1.0);
+  ImplicitEuler_Solver<MeshT, SpaceDisc> solver(
+      std::make_unique<Boundaries>(1.0, 3.0, 0.0, 0.0, 5.0, 0.0, 1.0));
 
   auto start = std::chrono::high_resolution_clock::now();
   while(solver.time() < 1.0) {
@@ -206,7 +208,8 @@ void plot_x_flux() {
   constexpr int ctrl_vols_y = 256;
 
   using MeshT         = Mesh<ctrl_vols_x, ctrl_vols_y>;
-  using SpaceAssembly = EnergyAssembly<SecondOrderCentered_Part1>;
+  using SpaceAssembly = EnergyAssembly<SecondOrderCentered>;
+  using Boundaries    = BConds_Part1;
   using RK4           = RK4_Solver<MeshT, SpaceAssembly>;
   using RK4Flux = RK4_Solver<Mesh<ctrl_vols_x + 1, ctrl_vols_y>, SpaceAssembly>;
   RK4 solver;
@@ -214,7 +217,9 @@ void plot_x_flux() {
   RK4Flux solver_fake_error;
   RK4Flux solver_fake_actual;
   SpaceAssembly &space_assembly = solver.space_assembly();
-  MeshT &initial                = solver.mesh();
+  const Boundaries &boundaries =
+      *reinterpret_cast<const Boundaries *>(space_assembly.boundaries());
+  MeshT &initial = solver.mesh();
 
   for(int i = -1; i < initial.x_dim(); i++) {
     for(int j = 0; j < initial.y_dim(); j++) {
@@ -224,10 +229,10 @@ void plot_x_flux() {
       solver_fake.mesh().Temp(i + 1, j) =
           space_assembly.uT_x_flux(initial, i, j, 0.0);
       solver_fake_actual.mesh().Temp(i + 1, j) =
-          space_assembly.solution(x, y, 0.0) * space_assembly.u(x, y);
+          boundaries.solution(x, y, 0.0) * boundaries.u(x, y);
       solver_fake_error.mesh().Temp(i + 1, j) =
           space_assembly.uT_x_flux(initial, i, j, 0.0) -
-          space_assembly.solution(x, y, 0.0) * space_assembly.u(x, y);
+          boundaries.solution(x, y, 0.0) * boundaries.u(x, y);
     }
   }
 
@@ -255,7 +260,8 @@ void plot_y_flux() {
   constexpr int ctrl_vols_y = 256;
 
   using MeshT         = Mesh<ctrl_vols_x, ctrl_vols_y>;
-  using SpaceAssembly = EnergyAssembly<SecondOrderCentered_Part1>;
+  using Boundaries    = BConds_Part1;
+  using SpaceAssembly = EnergyAssembly<SecondOrderCentered>;
   using RK4           = RK4_Solver<MeshT, SpaceAssembly>;
   using RK4Flux = RK4_Solver<Mesh<ctrl_vols_x, ctrl_vols_y + 1>, SpaceAssembly>;
   RK4 solver;
@@ -263,11 +269,15 @@ void plot_y_flux() {
   RK4Flux solver_fake_error;
   RK4Flux solver_fake_actual;
   SpaceAssembly &space_assembly = solver.space_assembly();
-  MeshT &initial                = solver.mesh();
+  const Boundaries &boundaries =
+      *reinterpret_cast<const Boundaries *>(space_assembly.boundaries());
+  MeshT &initial = solver.mesh();
 
-	printf("Boundaries: % .3e, % .3e\n", space_assembly.y_min(), space_assembly.y_max());
-	printf("Boundaries 0: % .3e, % .3e\n", space_assembly.boundary_y_0(0.25, 0.0), space_assembly.boundary_y_0(0.75, 0.0));
-	printf("Boundaries 1: % .3e, % .3e\n", space_assembly.boundary_y_1(0.25, 0.0), space_assembly.boundary_y_1(0.75, 0.0));
+  printf("Boundaries: % .3e, % .3e\n", boundaries.y_min(), boundaries.y_max());
+  printf("Boundaries 0: % .3e, % .3e\n", boundaries.boundary_y_min(0.25, 0.0),
+         boundaries.boundary_y_min(0.75, 0.0));
+  printf("Boundaries 1: % .3e, % .3e\n", boundaries.boundary_y_max(0.25, 0.0),
+         boundaries.boundary_y_max(0.75, 0.0));
 
   for(int i = 0; i < initial.x_dim(); i++) {
     for(int j = -1; j < initial.y_dim(); j++) {
@@ -277,10 +287,10 @@ void plot_y_flux() {
       solver_fake.mesh().Temp(i, j + 1) =
           space_assembly.uT_x_flux(initial, i, j, 0.0);
       solver_fake_actual.mesh().Temp(i, j + 1) =
-          space_assembly.solution(x, y, 0.0) * space_assembly.v(x, y);
+          boundaries.solution(x, y, 0.0) * boundaries.v(x, y);
       solver_fake_error.mesh().Temp(i, j + 1) =
           space_assembly.vT_y_flux(initial, i, j, 0.0) -
-          space_assembly.solution(x, y, 0.0) * space_assembly.v(x, y);
+          boundaries.solution(x, y, 0.0) * boundaries.v(x, y);
     }
   }
 
@@ -309,7 +319,8 @@ void plot_dx_flux() {
   constexpr int ctrl_vols_y = 256;
 
   using MeshT         = Mesh<ctrl_vols_x, ctrl_vols_y>;
-  using SpaceAssembly = EnergyAssembly<SecondOrderCentered_Part1>;
+  using Boundaries    = BConds_Part1;
+  using SpaceAssembly = EnergyAssembly<SecondOrderCentered>;
   using RK4           = RK4_Solver<MeshT, SpaceAssembly>;
   using RK4Flux = RK4_Solver<Mesh<ctrl_vols_x + 1, ctrl_vols_y>, SpaceAssembly>;
   RK4 solver;
@@ -317,7 +328,9 @@ void plot_dx_flux() {
   RK4Flux solver_fake_error;
   RK4Flux solver_fake_actual;
   SpaceAssembly &space_assembly = solver.space_assembly();
-  MeshT &initial                = solver.mesh();
+  const Boundaries &boundaries =
+      *reinterpret_cast<const Boundaries *>(space_assembly.boundaries());
+  MeshT &initial = solver.mesh();
 
   for(int i = -1; i < initial.x_dim(); i++) {
     for(int j = 0; j < initial.y_dim(); j++) {
@@ -327,10 +340,10 @@ void plot_dx_flux() {
       solver_fake.mesh().Temp(i + 1, j) =
           space_assembly.dx_flux(initial, i, j, 0.0);
       solver_fake_actual.mesh().Temp(i + 1, j) =
-          space_assembly.solution_dx(x, y, 0.0);
+          boundaries.solution_dx(x, y, 0.0);
       solver_fake_error.mesh().Temp(i + 1, j) =
           space_assembly.dx_flux(initial, i, j, 0.0) -
-          space_assembly.solution_dx(x, y, 0.0);
+          boundaries.solution_dx(x, y, 0.0);
     }
   }
 
@@ -359,7 +372,8 @@ void plot_dy_flux() {
   constexpr int ctrl_vols_y = 256;
 
   using MeshT         = Mesh<ctrl_vols_x, ctrl_vols_y>;
-  using SpaceAssembly = EnergyAssembly<SecondOrderCentered_Part1>;
+  using Boundaries    = BConds_Part1;
+  using SpaceAssembly = EnergyAssembly<SecondOrderCentered>;
   using RK4           = RK4_Solver<MeshT, SpaceAssembly>;
   using RK4Flux = RK4_Solver<Mesh<ctrl_vols_x, ctrl_vols_y + 1>, SpaceAssembly>;
   RK4 solver;
@@ -367,7 +381,9 @@ void plot_dy_flux() {
   RK4Flux solver_fake_error;
   RK4Flux solver_fake_actual;
   SpaceAssembly &space_assembly = solver.space_assembly();
-  MeshT &initial                = solver.mesh();
+  const Boundaries &boundaries =
+      *reinterpret_cast<const Boundaries *>(space_assembly.boundaries());
+  MeshT &initial = solver.mesh();
 
   for(int i = 0; i < initial.x_dim(); i++) {
     for(int j = -1; j < initial.y_dim(); j++) {
@@ -380,10 +396,10 @@ void plot_dy_flux() {
               initial, i, j,
               0.0);  // j because we're computing the flux at the boundaries
       solver_fake_actual.mesh().Temp(i, j + 1) =
-          space_assembly.solution_dy(x, y, 0.0);
+          boundaries.solution_dy(x, y, 0.0);
       solver_fake_error.mesh().Temp(i, j + 1) =
           space_assembly.dy_flux(initial, i, j, 0.0) -
-          space_assembly.solution_dy(x, y, 0.0);
+          boundaries.solution_dy(x, y, 0.0);
     }
   }
 
@@ -412,14 +428,17 @@ void plot_nabla2_T() {
   constexpr int ctrl_vols_y = 256;
 
   using MeshT         = Mesh<ctrl_vols_x, ctrl_vols_y>;
-  using SpaceAssembly = EnergyAssembly<SecondOrderCentered_Part1>;
+  using Boundaries    = BConds_Part1;
+  using SpaceAssembly = EnergyAssembly<SecondOrderCentered>;
   using RK4           = RK4_Solver<MeshT, SpaceAssembly>;
   RK4 solver;
   RK4 solver_fake;
   RK4 solver_fake_error;
   RK4 solver_fake_actual;
   SpaceAssembly &space_assembly = solver.space_assembly();
-  MeshT &initial                = solver.mesh();
+  const Boundaries &boundaries =
+      *reinterpret_cast<const Boundaries *>(space_assembly.boundaries());
+  MeshT &initial = solver.mesh();
 
   for(int i = 0; i < initial.x_dim(); i++) {
     for(int j = 0; j < initial.y_dim(); j++) {
@@ -429,10 +448,10 @@ void plot_nabla2_T() {
       solver_fake.mesh().Temp(i, j) =
           space_assembly.nabla2_T_flux_integral(initial, i, j, 0.0);
       solver_fake_actual.mesh().Temp(i, j) =
-          space_assembly.flux_int_nabla2_T_sol(x, y, 0.0);
+          boundaries.flux_int_nabla2_T_sol(x, y, 0.0);
       solver_fake_error.mesh().Temp(i, j) =
           space_assembly.nabla2_T_flux_integral(initial, i, j, 0.0) -
-          space_assembly.flux_int_nabla2_T_sol(x, y, 0.0);
+          boundaries.flux_int_nabla2_T_sol(x, y, 0.0);
     }
   }
   py::object Title = py::module::import("matplotlib.pyplot").attr("title");
@@ -458,14 +477,17 @@ void plot_source() {
   constexpr int ctrl_vols_y = 256;
 
   using MeshT         = Mesh<ctrl_vols_x, ctrl_vols_y>;
-  using SpaceAssembly = EnergyAssembly<SecondOrderCentered_Part1>;
+  using Boundaries    = BConds_Part1;
+  using SpaceAssembly = EnergyAssembly<SecondOrderCentered>;
   using RK4           = RK4_Solver<MeshT, SpaceAssembly>;
   RK4 solver;
   RK4 solver_fake;
   RK4 solver_fake_error;
   RK4 solver_fake_actual;
   SpaceAssembly &space_assembly = solver.space_assembly();
-  MeshT &initial                = solver.mesh();
+  const Boundaries &boundaries =
+      *reinterpret_cast<const Boundaries *>(space_assembly.boundaries());
+  MeshT &initial = solver.mesh();
 
   for(int i = 0; i < initial.x_dim(); i++) {
     for(int j = 0; j < initial.y_dim(); j++) {
@@ -474,11 +496,10 @@ void plot_source() {
 
       solver_fake.mesh().Temp(i, j) =
           space_assembly.source_fd(initial, i, j, 0.0);
-      solver_fake_actual.mesh().Temp(i, j) =
-          space_assembly.source_sol(x, y, 0.0);
+      solver_fake_actual.mesh().Temp(i, j) = boundaries.source_sol(x, y, 0.0);
       solver_fake_error.mesh().Temp(i, j) =
           space_assembly.source_fd(initial, i, j, 0.0) -
-          space_assembly.source_sol(x, y, 0.0);
+          boundaries.source_sol(x, y, 0.0);
     }
   }
   py::object Title = py::module::import("matplotlib.pyplot").attr("title");
@@ -503,14 +524,17 @@ void plot_flux_integral() {
   constexpr int ctrl_vols_y = mesh_dim;
 
   using MeshT         = Mesh<ctrl_vols_x, ctrl_vols_y>;
-  using SpaceAssembly = EnergyAssembly<SecondOrderCentered_Part1>;
+  using Boundaries    = BConds_Part1;
+  using SpaceAssembly = EnergyAssembly<SecondOrderCentered>;
   using RK4           = RK4_Solver<MeshT, SpaceAssembly>;
   RK4 solver;
   RK4 solver_fake;
   RK4 solver_fake_error;
   RK4 solver_fake_actual;
   SpaceAssembly &space_assembly = solver.space_assembly();
-  MeshT &initial                = solver.mesh();
+  const Boundaries &boundaries =
+      *reinterpret_cast<const Boundaries *>(space_assembly.boundaries());
+  MeshT &initial = solver.mesh();
 
   for(int i = 0; i < initial.x_dim(); i++) {
     for(int j = 0; j < initial.y_dim(); j++) {
@@ -520,10 +544,10 @@ void plot_flux_integral() {
       solver_fake.mesh().Temp(i, j) =
           space_assembly.flux_integral(initial, i, j, 0.0);
       solver_fake_actual.mesh().Temp(i, j) =
-          space_assembly.flux_int_solution(x, y, 0.0);
+          boundaries.flux_int_solution(x, y, 0.0);
       solver_fake_error.mesh().Temp(i, j) =
           space_assembly.flux_integral(initial, i, j, 0.0) -
-          space_assembly.flux_int_solution(x, y, 0.0);
+          boundaries.flux_int_solution(x, y, 0.0);
     }
   }
   py::object Title = py::module::import("matplotlib.pyplot").attr("title");
@@ -576,32 +600,6 @@ int main(int argc, char **argv) {
 
   // plot_explicit_energy_evolution<200, 80, SecondOrderCentered_Part7>();
   // plot_implicit_energy_evolution<200, 80, SecondOrderCentered_Part7>();
-
-  time_explicit_energy_evolution<
-      RK1_Solver<Mesh<25, 10>, EnergyAssembly<SecondOrderCentered_Part7> > >();
-  time_explicit_energy_evolution<
-      RK1_Solver<Mesh<50, 20>, EnergyAssembly<SecondOrderCentered_Part7> > >();
-  time_explicit_energy_evolution<
-      RK1_Solver<Mesh<75, 30>, EnergyAssembly<SecondOrderCentered_Part7> > >();
-  time_explicit_energy_evolution<
-      RK1_Solver<Mesh<100, 40>, EnergyAssembly<SecondOrderCentered_Part7> > >();
-  time_explicit_energy_evolution<
-      RK1_Solver<Mesh<150, 60>, EnergyAssembly<SecondOrderCentered_Part7> > >();
-  time_explicit_energy_evolution<
-      RK1_Solver<Mesh<200, 80>, EnergyAssembly<SecondOrderCentered_Part7> > >();
-
-  time_explicit_energy_evolution<
-      RK4_Solver<Mesh<25, 10>, EnergyAssembly<SecondOrderCentered_Part7> > >();
-  time_explicit_energy_evolution<
-      RK4_Solver<Mesh<50, 20>, EnergyAssembly<SecondOrderCentered_Part7> > >();
-  time_explicit_energy_evolution<
-      RK4_Solver<Mesh<75, 30>, EnergyAssembly<SecondOrderCentered_Part7> > >();
-  time_explicit_energy_evolution<
-      RK4_Solver<Mesh<100, 40>, EnergyAssembly<SecondOrderCentered_Part7> > >();
-  time_explicit_energy_evolution<
-      RK4_Solver<Mesh<150, 60>, EnergyAssembly<SecondOrderCentered_Part7> > >();
-  time_explicit_energy_evolution<
-      RK4_Solver<Mesh<200, 80>, EnergyAssembly<SecondOrderCentered_Part7> > >();
 
   time_implicit_energy_evolution<25, 10>();
   time_implicit_energy_evolution<50, 20>();

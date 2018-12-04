@@ -6,6 +6,7 @@
 
 #include "nd_array/nd_array.hpp"
 
+#include "boundaries.hpp"
 #include "constants.hpp"
 
 template <int _ctrl_vols_x, int _ctrl_vols_y>
@@ -128,6 +129,10 @@ class [[nodiscard]] Mesh {
         _temp(),
         _u_vel(),
         _v_vel() {}
+
+  constexpr Mesh(const BConds_Base * bconds)
+      : Mesh(bconds->x_min(), bconds->x_max(), bconds->y_min(),
+             bconds->y_max()) {}
 
   constexpr Mesh(const Mesh<ctrl_vols_x, ctrl_vols_y> &src) noexcept
       : Mesh(src._x_min, src._x_max, src._y_min, src._y_max) {}

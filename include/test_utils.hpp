@@ -37,47 +37,47 @@ namespace TestUtils {
 }
 
 template <typename MeshT>
-[[nodiscard]] real linf_error(
-    MeshT &mesh, std::function<real(const MeshT &, int, int)> err) {
-  real reduced = 0.0;
-  for(auto itr = mesh.Temp().begin(); itr != mesh.Temp().end(); ++itr) {
-    const int i = itr.index(0);
-    const int j = itr.index(1);
+[[nodiscard]] real
+    linf_error(MeshT &mesh, std::function<real(const MeshT &, int, int)> err) {
+      real reduced = 0.0;
+      for(auto itr = mesh.Temp().begin(); itr != mesh.Temp().end(); ++itr) {
+        const int i = itr.index(0);
+        const int j = itr.index(1);
 
-    const real diff = err(mesh, i, j);
+        const real diff = err(mesh, i, j);
 
-    reduced = std::max(reduced, std::abs(diff));
-  }
-  return reduced;
-}
-
-template <typename MeshT>
-[[nodiscard]] real l1_error(MeshT &mesh,
-                            std::function<real(const MeshT &, int, int)> err) {
-  real reduced = 0.0;
-  for(auto itr = mesh.Temp().begin(); itr != mesh.Temp().end(); ++itr) {
-    const int i = itr.index(0);
-    const int j = itr.index(1);
-
-    const real diff = err(mesh, i, j);
-    reduced += std::abs(diff);
-  }
-  return reduced;
-}
+        reduced = std::max(reduced, std::abs(diff));
+      }
+      return reduced;
+    }
 
 template <typename MeshT>
-[[nodiscard]] real l2_error(MeshT &mesh,
-                            std::function<real(const MeshT &, int, int)> err) {
-  real reduced = 0.0;
-  for(auto itr = mesh.Temp().begin(); itr != mesh.Temp().end(); ++itr) {
-    const int i = itr.index(0);
-    const int j = itr.index(1);
+[[nodiscard]] real
+    l1_error(MeshT &mesh, std::function<real(const MeshT &, int, int)> err) {
+      real reduced = 0.0;
+      for(auto itr = mesh.Temp().begin(); itr != mesh.Temp().end(); ++itr) {
+        const int i = itr.index(0);
+        const int j = itr.index(1);
 
-    const real diff = err(mesh, i, j);
-    reduced += (diff * diff);
-  }
-  return reduced;
-}
+        const real diff = err(mesh, i, j);
+        reduced += std::abs(diff);
+      }
+      return reduced;
+    }
+
+template <typename MeshT>
+[[nodiscard]] real
+    l2_error(MeshT &mesh, std::function<real(const MeshT &, int, int)> err) {
+      real reduced = 0.0;
+      for(auto itr = mesh.Temp().begin(); itr != mesh.Temp().end(); ++itr) {
+        const int i = itr.index(0);
+        const int j = itr.index(1);
+
+        const real diff = err(mesh, i, j);
+        reduced += (diff * diff);
+      }
+      return reduced;
+    }
 
 template <typename MeshT>
 void fill_mesh(
@@ -140,10 +140,10 @@ template <typename MeshT>
 std::pair<std::unique_ptr<MeshT>,
           std::unique_ptr<Mesh<MeshT::x_dim() * 2, MeshT::y_dim() * 2>>>
 compute_mesh_errs_init(
-    const EnergyAssembly<SecondOrderCentered_Part1> &space_disc,
+    const EnergyAssembly<SecondOrderCentered> &space_disc,
     std::vector<std::tuple<int, real, real, real>> &vec,
     std::function<std::unique_ptr<Mesh<MeshT::x_dim() * 2, MeshT::y_dim() * 2>>(
-        const EnergyAssembly<SecondOrderCentered_Part1> &space_disc,
+        const EnergyAssembly<SecondOrderCentered> &space_disc,
         std::vector<std::tuple<int, real, real, real>> &vec)>
         compute_errs) {
   constexpr int x_dim = MeshT::x_dim();
@@ -156,9 +156,9 @@ compute_mesh_errs_init(
   // Now just initialize the coarse mesh and compute the results for the fine
   // mesh
   std::unique_ptr<MeshT> coarse_mesh =
-      std::make_unique<MeshT>(space_disc.x_min(), space_disc.x_max(),
-                              space_disc.y_min(), space_disc.y_max());
-  TestUtils::fill_mesh(*coarse_mesh, space_disc.initial_solution_tuple());
+      std::make_unique<MeshT>(space_disc.boundaries());
+  TestUtils::fill_mesh(*coarse_mesh,
+                       space_disc.boundaries()->initial_solution_tuple());
   return {std::move(coarse_mesh), std::move(fine_mesh)};
 }
 

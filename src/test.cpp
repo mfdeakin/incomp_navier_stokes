@@ -18,16 +18,18 @@ TEST(utility, fill_mesh) {
   using MeshT = Mesh<ctrl_vols_x, ctrl_vols_y>;
   std::unique_ptr<MeshT> mesh =
       std::make_unique<MeshT>(min_x, max_x, min_y, max_y);
-  EnergyAssembly<SecondOrderCentered_Part1> space_disc(1.0, pi, 1.0 / pi);
-  TestUtils::fill_mesh(*mesh, space_disc.initial_solution_tuple());
+  EnergyAssembly<SecondOrderCentered> space_disc;
+  const BConds_Part1 &sol = *space_disc.boundaries();
+  TestUtils::fill_mesh(*mesh,
+                       space_disc.boundaries()->initial_solution_tuple());
 
   for(int i = 0; i < mesh->x_dim(); i++) {
     for(int j = 0; j < mesh->y_dim(); j++) {
       const real x = mesh->x_median(i);
       const real y = mesh->y_median(j);
-      EXPECT_EQ(mesh->Temp(i, j), space_disc.solution(x, y, 0.0));
-      EXPECT_EQ(mesh->u_vel(i, j), space_disc.u(x, y));
-      EXPECT_EQ(mesh->v_vel(i, j), space_disc.v(x, y));
+      EXPECT_EQ(mesh->Temp(i, j), sol.solution(x, y, 0.0));
+      EXPECT_EQ(mesh->u_vel(i, j), sol.u(x, y));
+      EXPECT_EQ(mesh->v_vel(i, j), sol.v(x, y));
     }
   }
 }
@@ -43,7 +45,7 @@ TEST(part_1, fluxes_calc_1) {
   using MeshT = Mesh<ctrl_vols_x, ctrl_vols_y>;
   std::unique_ptr<MeshT> mesh =
       std::make_unique<MeshT>(min_x, max_x, min_y, max_y);
-  EnergyAssembly<SecondOrderCentered_Part1> space_disc(q_nan, q_nan, q_nan);
+  EnergyAssembly<SecondOrderCentered> space_disc;
 
   auto sol = [](const real x, const real y) {
     return std::tuple<real, real, real>(
@@ -90,9 +92,10 @@ TEST(part_1, fluxes_calc_2) {
   using MeshT = Mesh<ctrl_vols_x, ctrl_vols_y>;
   std::unique_ptr<MeshT> mesh =
       std::make_unique<MeshT>(min_x, max_x, min_y, max_y);
-  EnergyAssembly<SecondOrderCentered_Part1> space_disc(1.0, pi, 1.0 / pi);
+  EnergyAssembly<SecondOrderCentered> space_disc;
+  const BConds_Part1 &sol = *space_disc.boundaries();
 
-  TestUtils::fill_mesh(*mesh, space_disc.initial_solution_tuple());
+  TestUtils::fill_mesh(*mesh, sol.initial_solution_tuple());
 
   // Ignore the boundaries, since they seem to have catastrophic cancellation
   // issues
@@ -105,27 +108,27 @@ TEST(part_1, fluxes_calc_2) {
       // the flux isn't being computed for is outside of the mesh
       if(j != -1) {
         const real x_max = mesh->x_max(i);
-        EXPECT_NEAR(space_disc.solution(x_max, y, 0.0) * space_disc.u(x_max, y),
+        EXPECT_NEAR(sol.solution(x_max, y, 0.0) * sol.u(x_max, y),
                     space_disc.uT_x_flux(*mesh, i, j, 0.0), max_err);
-        EXPECT_NEAR(space_disc.solution_dx(x_max, y, 0.0),
+        EXPECT_NEAR(sol.solution_dx(x_max, y, 0.0),
                     space_disc.dx_flux(*mesh, i, j, 0.0), max_err);
         // Sanity check for the derivative solution implementation
-        EXPECT_NEAR((space_disc.solution(x + mesh->dx(), y, 0.0) -
-                     space_disc.solution(x, y, 0.0)) /
-                        mesh->dx(),
-                    space_disc.dx_flux(*mesh, i, j, 0.0), max_err);
+        EXPECT_NEAR(
+            (sol.solution(x + mesh->dx(), y, 0.0) - sol.solution(x, y, 0.0)) /
+                mesh->dx(),
+            space_disc.dx_flux(*mesh, i, j, 0.0), max_err);
       }
       if(i != -1) {
         const real y_max = mesh->y_max(j);
-        EXPECT_NEAR(space_disc.solution(x, y_max, 0.0) * space_disc.v(x, y_max),
+        EXPECT_NEAR(sol.solution(x, y_max, 0.0) * sol.v(x, y_max),
                     space_disc.vT_y_flux(*mesh, i, j, 0.0), max_err);
-        EXPECT_NEAR(space_disc.solution_dy(x, y_max, 0.0),
+        EXPECT_NEAR(sol.solution_dy(x, y_max, 0.0),
                     space_disc.dy_flux(*mesh, i, j, 0.0), max_err);
         // Sanity check for the derivative solution implementation
-        EXPECT_NEAR((space_disc.solution(x, y + mesh->dy(), 0.0) -
-                     space_disc.solution(x, y, 0.0)) /
-                        mesh->dy(),
-                    space_disc.dy_flux(*mesh, i, j, 0.0), max_err);
+        EXPECT_NEAR(
+            (sol.solution(x, y + mesh->dy(), 0.0) - sol.solution(x, y, 0.0)) /
+                mesh->dy(),
+            space_disc.dy_flux(*mesh, i, j, 0.0), max_err);
       }
     }
   }
@@ -232,13 +235,12 @@ template <typename MeshT>
 typename std::enable_if<MeshT::x_dim() >= max_mesh_size,
                         // Return the current mesh and the next largest mesh
                         std::unique_ptr<MeshT>>::type
-compute_source_errors(
-    const EnergyAssembly<SecondOrderCentered_Part1> &space_disc,
-    std::vector<std::tuple<int, real, real, real>> &vec) {
-  auto mesh = std::make_unique<MeshT>(space_disc.x_min(), space_disc.x_max(),
-                                      space_disc.y_min(), space_disc.y_max());
+compute_source_errors(const EnergyAssembly<SecondOrderCentered> &space_disc,
+                      std::vector<std::tuple<int, real, real, real>> &vec) {
+  auto mesh = std::make_unique<MeshT>(space_disc.boundaries());
   // Ensure it's initialized with the solution
-  TestUtils::fill_mesh(*mesh, space_disc.initial_solution_tuple());
+  TestUtils::fill_mesh(*mesh,
+                       space_disc.boundaries()->initial_solution_tuple());
 
   return mesh;
 }
@@ -247,30 +249,32 @@ compute_source_errors(
 template <typename MeshT>
 typename std::enable_if<MeshT::x_dim() < max_mesh_size,
                         std::unique_ptr<MeshT>>::type
-compute_source_errors(
-    const EnergyAssembly<SecondOrderCentered_Part1> &space_disc,
-    std::vector<std::tuple<int, real, real, real>> &vec) {
+compute_source_errors(const EnergyAssembly<SecondOrderCentered> &space_disc,
+                      std::vector<std::tuple<int, real, real, real>> &vec) {
   constexpr int x_dim = MeshT::x_dim();
   constexpr int y_dim = MeshT::y_dim();
 
   using CoarseMesh = MeshT;
   using FineMesh   = Mesh<x_dim * 2, y_dim * 2>;
+  using BoundPtr   = const BConds_Part1 *;
 
   auto [coarse_mesh, fine_mesh] = TestUtils::compute_mesh_errs_init<MeshT>(
       space_disc, vec, compute_source_errors<FineMesh>);
 
   std::function<real(const FineMesh &, const int i, const int j)> est_err_fine =
-      [=](const FineMesh &mesh, const int i, const int j) {
+      [&](const FineMesh &mesh, const int i, const int j) {
         const real x = mesh.x_median(i);
         const real y = mesh.y_median(j);
-        return space_disc.source_sol(x, y, 0.0) -
+        BoundPtr sol = reinterpret_cast<BoundPtr>(space_disc.boundaries());
+        return sol->source_sol(x, y, 0.0) -
                space_disc.source_fd(mesh, i, j, 0.0);
       };
   std::function<real(const CoarseMesh &, const int i, const int j)>
-      est_err_coarse = [=](const CoarseMesh &mesh, const int i, const int j) {
+      est_err_coarse = [&](const CoarseMesh &mesh, const int i, const int j) {
         const real x = mesh.x_median(i);
         const real y = mesh.y_median(j);
-        return space_disc.source_sol(x, y, 0.0) -
+        BoundPtr sol = reinterpret_cast<BoundPtr>(space_disc.boundaries());
+        return sol->source_sol(x, y, 0.0) -
                space_disc.source_fd(mesh, i, j, 0.0);
       };
 
@@ -288,13 +292,12 @@ template <typename MeshT>
 typename std::enable_if<MeshT::x_dim() >= max_mesh_size,
                         // Return the current mesh and the next largest mesh
                         std::unique_ptr<MeshT>>::type
-compute_flux_x_errors(
-    const EnergyAssembly<SecondOrderCentered_Part1> &space_disc,
-    std::vector<std::tuple<int, real, real, real>> &vec) {
-  auto mesh = std::make_unique<MeshT>(space_disc.x_min(), space_disc.x_max(),
-                                      space_disc.y_min(), space_disc.y_max());
+compute_flux_x_errors(const EnergyAssembly<SecondOrderCentered> &space_disc,
+                      std::vector<std::tuple<int, real, real, real>> &vec) {
+  auto mesh = std::make_unique<MeshT>(space_disc.boundaries());
   // Ensure it's initialized with the solution
-  TestUtils::fill_mesh(*mesh, space_disc.initial_solution_tuple());
+  TestUtils::fill_mesh(*mesh,
+                       space_disc.boundaries()->initial_solution_tuple());
 
   return mesh;
 }
@@ -303,9 +306,8 @@ compute_flux_x_errors(
 template <typename MeshT>
 typename std::enable_if<MeshT::x_dim() < max_mesh_size,
                         std::unique_ptr<MeshT>>::type
-compute_flux_x_errors(
-    const EnergyAssembly<SecondOrderCentered_Part1> &space_disc,
-    std::vector<std::tuple<int, real, real, real>> &vec) {
+compute_flux_x_errors(const EnergyAssembly<SecondOrderCentered> &space_disc,
+                      std::vector<std::tuple<int, real, real, real>> &vec) {
   constexpr int x_dim = MeshT::x_dim();
   constexpr int y_dim = MeshT::y_dim();
 
@@ -316,21 +318,27 @@ compute_flux_x_errors(
       space_disc, vec, compute_flux_x_errors<FineMesh>);
 
   std::function<real(const FineMesh &, const int i, const int j)> est_err_fine =
-      [=](const FineMesh &mesh, const int i, const int j) {
-        const real x   = mesh.x_median(i);
-        const real y   = mesh.y_median(j);
-        const real err = space_disc.solution(x + mesh.dx() / 2.0, y, 0.0) *
-                             space_disc.u(x + mesh.dx() / 2.0, y) -
+      [&](const FineMesh &mesh, const int i, const int j) {
+        const real x = mesh.x_median(i);
+        const real y = mesh.y_median(j);
+
+        const BConds_Part1 &sol = *space_disc.boundaries();
+
+        const real err = sol.solution(x + mesh.dx() / 2.0, y, 0.0) *
+                             sol.u(x + mesh.dx() / 2.0, y) -
                          space_disc.uT_x_flux(mesh, i, j, 0.0);
         return err;
       };
 
   std::function<real(const CoarseMesh &, const int i, const int j)>
-      est_err_coarse = [=](const CoarseMesh &mesh, const int i, const int j) {
+      est_err_coarse = [&](const CoarseMesh &mesh, const int i, const int j) {
         const real x = mesh.x_median(i);
         const real y = mesh.y_median(j);
-        return space_disc.solution(x + mesh.dx() / 2.0, y, 0.0) *
-                   space_disc.u(x + mesh.dx() / 2.0, y) -
+
+        const BConds_Part1 &sol = *space_disc.boundaries();
+
+        return sol.solution(x + mesh.dx() / 2.0, y, 0.0) *
+                   sol.u(x + mesh.dx() / 2.0, y) -
                space_disc.uT_x_flux(mesh, i, j, 0.0);
       };
 
@@ -348,13 +356,12 @@ template <typename MeshT>
 typename std::enable_if<MeshT::x_dim() >= max_mesh_size,
                         // Return the current mesh and the next largest mesh
                         std::unique_ptr<MeshT>>::type
-compute_flux_y_errors(
-    const EnergyAssembly<SecondOrderCentered_Part1> &space_disc,
-    std::vector<std::tuple<int, real, real, real>> &vec) {
-  auto mesh = std::make_unique<MeshT>(space_disc.x_min(), space_disc.x_max(),
-                                      space_disc.y_min(), space_disc.y_max());
+compute_flux_y_errors(const EnergyAssembly<SecondOrderCentered> &space_disc,
+                      std::vector<std::tuple<int, real, real, real>> &vec) {
+  auto mesh = std::make_unique<MeshT>(space_disc.boundaries());
   // Ensure it's initialized with the solution
-  TestUtils::fill_mesh(*mesh, space_disc.initial_solution_tuple());
+  TestUtils::fill_mesh(*mesh,
+                       space_disc.boundaries()->initial_solution_tuple());
 
   return mesh;
 }
@@ -363,9 +370,8 @@ compute_flux_y_errors(
 template <typename MeshT>
 typename std::enable_if<MeshT::x_dim() < max_mesh_size,
                         std::unique_ptr<MeshT>>::type
-compute_flux_y_errors(
-    const EnergyAssembly<SecondOrderCentered_Part1> &space_disc,
-    std::vector<std::tuple<int, real, real, real>> &vec) {
+compute_flux_y_errors(const EnergyAssembly<SecondOrderCentered> &space_disc,
+                      std::vector<std::tuple<int, real, real, real>> &vec) {
   constexpr int x_dim = MeshT::x_dim();
   constexpr int y_dim = MeshT::y_dim();
 
@@ -376,20 +382,26 @@ compute_flux_y_errors(
       space_disc, vec, compute_flux_y_errors<FineMesh>);
 
   std::function<real(const FineMesh &, const int i, const int j)> est_err_fine =
-      [=](const FineMesh &mesh, const int i, const int j) {
-        const real x   = mesh.x_median(i);
-        const real y   = mesh.y_median(j);
-        const real err = space_disc.solution(x, y + mesh.dy() / 2.0, 0.0) *
-                             space_disc.v(x, y + mesh.dy() / 2.0) -
+      [&](const FineMesh &mesh, const int i, const int j) {
+        const real x = mesh.x_median(i);
+        const real y = mesh.y_median(j);
+
+        const BConds_Part1 &sol = *space_disc.boundaries();
+
+        const real err = sol.solution(x, y + mesh.dy() / 2.0, 0.0) *
+                             sol.v(x, y + mesh.dy() / 2.0) -
                          space_disc.vT_y_flux(mesh, i, j, 0.0);
         return err;
       };
   std::function<real(const CoarseMesh &, const int i, const int j)>
-      est_err_coarse = [=](const CoarseMesh &mesh, const int i, const int j) {
-        const real x   = mesh.x_median(i);
-        const real y   = mesh.y_median(j);
-        const real err = space_disc.solution(x, y + mesh.dy() / 2.0, 0.0) *
-                             space_disc.v(x, y + mesh.dy() / 2.0) -
+      est_err_coarse = [&](const CoarseMesh &mesh, const int i, const int j) {
+        const real x = mesh.x_median(i);
+        const real y = mesh.y_median(j);
+
+        const BConds_Part1 &sol = *space_disc.boundaries();
+
+        const real err = sol.solution(x, y + mesh.dy() / 2.0, 0.0) *
+                             sol.v(x, y + mesh.dy() / 2.0) -
                          space_disc.vT_y_flux(mesh, i, j, 0.0);
         return err;
       };
@@ -408,13 +420,12 @@ template <typename MeshT>
 typename std::enable_if<MeshT::x_dim() >= max_mesh_size,
                         // Return the current mesh and the next largest mesh
                         std::unique_ptr<MeshT>>::type
-compute_dy_flux_y_errors(
-    const EnergyAssembly<SecondOrderCentered_Part1> &space_disc,
-    std::vector<std::tuple<int, real, real, real>> &vec) {
-  auto mesh = std::make_unique<MeshT>(space_disc.x_min(), space_disc.x_max(),
-                                      space_disc.y_min(), space_disc.y_max());
+compute_dy_flux_y_errors(const EnergyAssembly<SecondOrderCentered> &space_disc,
+                         std::vector<std::tuple<int, real, real, real>> &vec) {
+  auto mesh = std::make_unique<MeshT>(space_disc.boundaries());
   // Ensure it's initialized with the solution
-  TestUtils::fill_mesh(*mesh, space_disc.initial_solution_tuple());
+  TestUtils::fill_mesh(*mesh,
+                       space_disc.boundaries()->initial_solution_tuple());
 
   return mesh;
 }
@@ -423,9 +434,8 @@ compute_dy_flux_y_errors(
 template <typename MeshT>
 typename std::enable_if<MeshT::x_dim() < max_mesh_size,
                         std::unique_ptr<MeshT>>::type
-compute_dy_flux_y_errors(
-    const EnergyAssembly<SecondOrderCentered_Part1> &space_disc,
-    std::vector<std::tuple<int, real, real, real>> &vec) {
+compute_dy_flux_y_errors(const EnergyAssembly<SecondOrderCentered> &space_disc,
+                         std::vector<std::tuple<int, real, real, real>> &vec) {
   constexpr int x_dim = MeshT::x_dim();
   constexpr int y_dim = MeshT::y_dim();
 
@@ -436,18 +446,24 @@ compute_dy_flux_y_errors(
       space_disc, vec, compute_dy_flux_y_errors<FineMesh>);
 
   std::function<real(const FineMesh &, const int i, const int j)> est_err_fine =
-      [=](const FineMesh &mesh, const int i, const int j) {
-        const real x   = mesh.x_median(i);
-        const real y   = mesh.y_median(j);
-        const real err = space_disc.solution_dy(x, y + mesh.dy() / 2.0, 0.0) -
+      [&](const FineMesh &mesh, const int i, const int j) {
+        const real x = mesh.x_median(i);
+        const real y = mesh.y_median(j);
+
+        const BConds_Part1 &sol = *space_disc.boundaries();
+
+        const real err = sol.solution_dy(x, y + mesh.dy() / 2.0, 0.0) -
                          space_disc.dy_flux(mesh, i, j, 0.0);
         return err;
       };
   std::function<real(const CoarseMesh &, const int i, const int j)>
-      est_err_coarse = [=](const CoarseMesh &mesh, const int i, const int j) {
-        const real x   = mesh.x_median(i);
-        const real y   = mesh.y_median(j);
-        const real err = space_disc.solution_dy(x, y + mesh.dy() / 2.0, 0.0) -
+      est_err_coarse = [&](const CoarseMesh &mesh, const int i, const int j) {
+        const real x = mesh.x_median(i);
+        const real y = mesh.y_median(j);
+
+        const BConds_Part1 &sol = *space_disc.boundaries();
+
+        const real err = sol.solution_dy(x, y + mesh.dy() / 2.0, 0.0) -
                          space_disc.dy_flux(mesh, i, j, 0.0);
         return err;
       };
@@ -466,13 +482,12 @@ template <typename MeshT>
 typename std::enable_if<MeshT::x_dim() >= max_mesh_size,
                         // Return the current mesh and the next largest mesh
                         std::unique_ptr<MeshT>>::type
-compute_dx_flux_x_errors(
-    const EnergyAssembly<SecondOrderCentered_Part1> &space_disc,
-    std::vector<std::tuple<int, real, real, real>> &vec) {
-  auto mesh = std::make_unique<MeshT>(space_disc.x_min(), space_disc.x_max(),
-                                      space_disc.y_min(), space_disc.y_max());
+compute_dx_flux_x_errors(const EnergyAssembly<SecondOrderCentered> &space_disc,
+                         std::vector<std::tuple<int, real, real, real>> &vec) {
+  auto mesh = std::make_unique<MeshT>(space_disc.boundaries());
   // Ensure it's initialized with the solution
-  TestUtils::fill_mesh(*mesh, space_disc.initial_solution_tuple());
+  TestUtils::fill_mesh(*mesh,
+                       space_disc.boundaries()->initial_solution_tuple());
 
   return mesh;
 }
@@ -481,9 +496,8 @@ compute_dx_flux_x_errors(
 template <typename MeshT>
 typename std::enable_if<MeshT::x_dim() < max_mesh_size,
                         std::unique_ptr<MeshT>>::type
-compute_dx_flux_x_errors(
-    const EnergyAssembly<SecondOrderCentered_Part1> &space_disc,
-    std::vector<std::tuple<int, real, real, real>> &vec) {
+compute_dx_flux_x_errors(const EnergyAssembly<SecondOrderCentered> &space_disc,
+                         std::vector<std::tuple<int, real, real, real>> &vec) {
   constexpr int x_dim = MeshT::x_dim();
   constexpr int y_dim = MeshT::y_dim();
 
@@ -493,19 +507,23 @@ compute_dx_flux_x_errors(
   auto [coarse_mesh, fine_mesh] = TestUtils::compute_mesh_errs_init<MeshT>(
       space_disc, vec, compute_dx_flux_x_errors<FineMesh>);
 
+  using BoundPtr = const BConds_Part1 *;
+
   std::function<real(const FineMesh &, const int i, const int j)> est_err_fine =
-      [=](const FineMesh &mesh, const int i, const int j) {
+      [&](const FineMesh &mesh, const int i, const int j) {
         const real x   = mesh.x_median(i);
         const real y   = mesh.y_median(j);
-        const real err = space_disc.solution_dx(x + mesh.dx() / 2.0, y, 0.0) -
+        BoundPtr sol   = reinterpret_cast<BoundPtr>(space_disc.boundaries());
+        const real err = sol->solution_dx(x + mesh.dx() / 2.0, y, 0.0) -
                          space_disc.dx_flux(mesh, i, j, 0.0);
         return err;
       };
   std::function<real(const CoarseMesh &, const int i, const int j)>
-      est_err_coarse = [=](const CoarseMesh &mesh, const int i, const int j) {
+      est_err_coarse = [&](const CoarseMesh &mesh, const int i, const int j) {
         const real x   = mesh.x_median(i);
         const real y   = mesh.y_median(j);
-        const real err = space_disc.solution_dx(x + mesh.dy() / 2.0, y, 0.0) -
+        BoundPtr sol   = reinterpret_cast<BoundPtr>(space_disc.boundaries());
+        const real err = sol->solution_dx(x + mesh.dy() / 2.0, y, 0.0) -
                          space_disc.dx_flux(mesh, i, j, 0.0);
         return err;
       };
@@ -524,13 +542,12 @@ template <typename MeshT>
 typename std::enable_if<MeshT::x_dim() >= max_mesh_size,
                         // Return the current mesh and the next largest mesh
                         std::unique_ptr<MeshT>>::type
-compute_flux_int_errors(
-    const EnergyAssembly<SecondOrderCentered_Part1> &space_disc,
-    std::vector<std::tuple<int, real, real, real>> &vec) {
-  auto mesh = std::make_unique<MeshT>(space_disc.x_min(), space_disc.x_max(),
-                                      space_disc.y_min(), space_disc.y_max());
+compute_flux_int_errors(const EnergyAssembly<SecondOrderCentered> &space_disc,
+                        std::vector<std::tuple<int, real, real, real>> &vec) {
+  auto mesh = std::make_unique<MeshT>(space_disc.boundaries());
   // Ensure it's initialized with the solution
-  TestUtils::fill_mesh(*mesh, space_disc.initial_solution_tuple());
+  TestUtils::fill_mesh(*mesh,
+                       space_disc.boundaries()->initial_solution_tuple());
 
   return mesh;
 }
@@ -539,31 +556,34 @@ compute_flux_int_errors(
 template <typename MeshT>
 typename std::enable_if<MeshT::x_dim() < max_mesh_size,
                         std::unique_ptr<MeshT>>::type
-compute_flux_int_errors(
-    const EnergyAssembly<SecondOrderCentered_Part1> &space_disc,
-    std::vector<std::tuple<int, real, real, real>> &vec) {
+compute_flux_int_errors(const EnergyAssembly<SecondOrderCentered> &space_disc,
+                        std::vector<std::tuple<int, real, real, real>> &vec) {
   constexpr int x_dim = MeshT::x_dim();
   constexpr int y_dim = MeshT::y_dim();
 
   using CoarseMesh = MeshT;
   using FineMesh   = Mesh<x_dim * 2, y_dim * 2>;
 
+  using BoundPtr = const BConds_Part1 *;
+
   auto [coarse_mesh, fine_mesh] = TestUtils::compute_mesh_errs_init<MeshT>(
       space_disc, vec, compute_flux_int_errors<FineMesh>);
 
   std::function<real(const FineMesh &, const int i, const int j)> est_err_fine =
-      [=](const FineMesh &mesh, const int i, const int j) {
+      [&](const FineMesh &mesh, const int i, const int j) {
         const real x   = mesh.x_median(i);
         const real y   = mesh.y_median(j);
-        const real err = space_disc.flux_int_solution(x, y, 0.0) -
+        BoundPtr sol   = reinterpret_cast<BoundPtr>(space_disc.boundaries());
+        const real err = sol->flux_int_solution(x, y, 0.0) -
                          space_disc.flux_integral(mesh, i, j, 0.0);
         return err;
       };
   std::function<real(const CoarseMesh &, const int i, const int j)>
-      est_err_coarse = [=](const CoarseMesh &mesh, const int i, const int j) {
+      est_err_coarse = [&](const CoarseMesh &mesh, const int i, const int j) {
         const real x = mesh.x_median(i);
         const real y = mesh.y_median(j);
-        return space_disc.flux_int_solution(x, y, 0.0) -
+        BoundPtr sol = reinterpret_cast<BoundPtr>(space_disc.boundaries());
+        return sol->flux_int_solution(x, y, 0.0) -
                space_disc.flux_integral(mesh, i, j, 0.0);
       };
 
@@ -578,7 +598,7 @@ compute_flux_int_errors(
 
 TEST(part_1, x_flux_convergence) {
   using err_tuple = std::tuple<int, real, real, real>;
-  EnergyAssembly<SecondOrderCentered_Part1> space_disc(1.0, 1.0, 1.0);
+  EnergyAssembly<SecondOrderCentered> space_disc;
   std::vector<err_tuple> errors;
   compute_flux_x_errors<Mesh<20, 20>>(space_disc, errors);
   // For the solution to be correct, the order of convergence (as the mesh
@@ -595,7 +615,7 @@ TEST(part_1, x_flux_convergence) {
 
 TEST(part_1, y_flux_convergence) {
   using err_tuple = std::tuple<int, real, real, real>;
-  EnergyAssembly<SecondOrderCentered_Part1> space_disc(1.0, 1.0, 1.0);
+  EnergyAssembly<SecondOrderCentered> space_disc;
   std::vector<err_tuple> errors;
   compute_flux_y_errors<Mesh<20, 20>>(space_disc, errors);
   // For the solution to be correct, the order of convergence (as the mesh
@@ -612,7 +632,7 @@ TEST(part_1, y_flux_convergence) {
 
 TEST(part_1, dx_x_flux_convergence) {
   using err_tuple = std::tuple<int, real, real, real>;
-  EnergyAssembly<SecondOrderCentered_Part1> space_disc(1.0, 1.0, 1.0);
+  EnergyAssembly<SecondOrderCentered> space_disc;
   std::vector<err_tuple> errors;
   compute_dx_flux_x_errors<Mesh<20, 20>>(space_disc, errors);
   // For the solution to be correct, the order of convergence (as the mesh
@@ -629,7 +649,7 @@ TEST(part_1, dx_x_flux_convergence) {
 
 TEST(part_1, dy_flux_convergence) {
   using err_tuple = std::tuple<int, real, real, real>;
-  EnergyAssembly<SecondOrderCentered_Part1> space_disc(1.0, 1.0, 1.0);
+  EnergyAssembly<SecondOrderCentered> space_disc;
   std::vector<err_tuple> errors;
   compute_dy_flux_y_errors<Mesh<20, 20>>(space_disc, errors);
   // For the solution to be correct, the order of convergence (as the mesh
@@ -646,7 +666,7 @@ TEST(part_1, dy_flux_convergence) {
 
 TEST(part_1, boundary_x_flux_convergence) {
   using err_tuple = std::tuple<int, real, real, real>;
-  EnergyAssembly<SecondOrderCentered_Part1> space_disc(1.0, 1.0, 1.0);
+  EnergyAssembly<SecondOrderCentered> space_disc;
   std::vector<err_tuple> errors;
   compute_flux_x_errors<Mesh<1, 200>>(space_disc, errors);
   // For the solution to be correct, the order of convergence (as the mesh
@@ -663,7 +683,7 @@ TEST(part_1, boundary_x_flux_convergence) {
 
 TEST(part_1, boundary_y_flux_convergence) {
   using err_tuple = std::tuple<int, real, real, real>;
-  EnergyAssembly<SecondOrderCentered_Part1> space_disc(1.0, 1.0, 1.0);
+  EnergyAssembly<SecondOrderCentered> space_disc;
   std::vector<err_tuple> errors;
   compute_flux_y_errors<Mesh<200, 1>>(space_disc, errors);
   // For the solution to be correct, the order of convergence (as the mesh
@@ -680,7 +700,7 @@ TEST(part_1, boundary_y_flux_convergence) {
 
 TEST(part_1, boundary_dx_x_flux_convergence) {
   using err_tuple = std::tuple<int, real, real, real>;
-  EnergyAssembly<SecondOrderCentered_Part1> space_disc(1.0, 1.0, 1.0);
+  EnergyAssembly<SecondOrderCentered> space_disc;
   std::vector<err_tuple> errors;
   compute_dx_flux_x_errors<Mesh<1, 200>>(space_disc, errors);
   // For the solution to be correct, the order of convergence (as the mesh
@@ -697,7 +717,7 @@ TEST(part_1, boundary_dx_x_flux_convergence) {
 
 TEST(part_1, boundary_dy_flux_convergence) {
   using err_tuple = std::tuple<int, real, real, real>;
-  EnergyAssembly<SecondOrderCentered_Part1> space_disc(1.0, 1.0, 1.0);
+  EnergyAssembly<SecondOrderCentered> space_disc;
   std::vector<err_tuple> errors;
   compute_dy_flux_y_errors<Mesh<200, 1>>(space_disc, errors);
   // For the solution to be correct, the order of convergence (as the mesh
@@ -714,7 +734,7 @@ TEST(part_1, boundary_dy_flux_convergence) {
 
 TEST(part_1, flux_integral_convergence) {
   using err_tuple = std::tuple<int, real, real, real>;
-  EnergyAssembly<SecondOrderCentered_Part1> space_disc(1.0, 1.0, 1.0);
+  EnergyAssembly<SecondOrderCentered> space_disc;
   std::vector<err_tuple> errors;
   compute_flux_int_errors<Mesh<20, 20>>(space_disc, errors);
   // For the solution to be correct, the order of convergence (as the mesh
@@ -734,19 +754,19 @@ TEST(part_2, source_term) {
   constexpr int ctrl_vols_x = 640, ctrl_vols_y = 640;
 
   using MeshT = Mesh<ctrl_vols_x, ctrl_vols_y>;
-  EnergyAssembly<EnergyAssembly<SecondOrderCentered_Part1>> space_disc(1.0, 1.0,
-                                                                       1.0);
+  EnergyAssembly<SecondOrderCentered> space_disc;
   std::unique_ptr<MeshT> mesh =
-      std::make_unique<MeshT>(space_disc.x_min(), space_disc.x_max(),
-                              space_disc.y_min(), space_disc.y_max());
+      std::make_unique<MeshT>(space_disc.boundaries());
 
-  TestUtils::fill_mesh(*mesh, space_disc.initial_solution_tuple());
+  TestUtils::fill_mesh(*mesh,
+                       space_disc.boundaries()->initial_solution_tuple());
 
   for(int i = 0; i < mesh->x_dim(); i++) {
     for(int j = 0; j < mesh->y_dim(); j++) {
-      const real x = mesh->x_median(i);
-      const real y = mesh->y_median(j);
-      EXPECT_NEAR(space_disc.source_sol(x, y, 0.0),
+      const real x            = mesh->x_median(i);
+      const real y            = mesh->y_median(j);
+      const BConds_Part1 &sol = *space_disc.boundaries();
+      EXPECT_NEAR(sol.source_sol(x, y, 0.0),
                   space_disc.source_fd(*mesh, i, j, 0.0), 1e-6);
     }
   }
@@ -754,7 +774,7 @@ TEST(part_2, source_term) {
 
 TEST(part_2, source_term_convergence) {
   using err_tuple = std::tuple<int, real, real, real>;
-  EnergyAssembly<SecondOrderCentered_Part1> space_disc(1.0, 1.0, 1.0);
+  EnergyAssembly<SecondOrderCentered> space_disc;
   std::vector<err_tuple> errors;
   compute_source_errors<Mesh<20, 20>>(space_disc, errors);
   // For the solution to be correct, the order of convergence (as the mesh

@@ -2,6 +2,7 @@
 #ifndef _TIME_DISC_HPP_
 #define _TIME_DISC_HPP_
 
+#include "boundaries.hpp"
 #include "constants.hpp"
 #include "thomas.hpp"
 
@@ -9,26 +10,31 @@
 #include <cassert>
 #include <memory>
 
-template <typename _Mesh, typename _SpaceAssembly>
+template <typename _Mesh, typename _SpaceDisc>
 class Base_Solver {
  public:
   using MeshT         = _Mesh;
-  using SpaceAssembly = _SpaceAssembly;
+  using SpaceAssembly = EnergyAssembly<_SpaceDisc>;
 
-  Base_Solver(const real T_0 = 1.0, const real u_0 = 1.0, const real v_0 = 1.0,
-              const real x_min = 0.0, const real x_max = 1.0,
-              const real y_min = 0.0, const real y_max = 1.0)
-      : _cur_mesh(std::make_unique<MeshT>(x_min, x_max, y_min, y_max)),
-        _space_assembly(T_0, u_0, v_0),
+  static std::unique_ptr<BConds_Base> default_boundaries() noexcept {
+    return std::make_unique<BConds_Part1>(1.0, 1.0, 1.0, 0.0, 1.0, 0.0, 1.0);
+  }
+
+  Base_Solver(std::unique_ptr<BConds_Base> &&boundaries)
+      : _cur_mesh(
+            std::make_unique<MeshT>(boundaries->x_min(), boundaries->x_max(),
+                                    boundaries->y_min(), boundaries->y_max())),
+        _space_assembly(std::move(boundaries)),
         _time(0.0) {
     for(int i = 0; i < _cur_mesh->x_dim(); i++) {
       for(int j = 0; j < _cur_mesh->y_dim(); j++) {
         const real x = _cur_mesh->x_median(i);
         const real y = _cur_mesh->y_median(j);
 
-        _cur_mesh->Temp(i, j)  = _space_assembly.solution(x, y, 0.0);
-        _cur_mesh->u_vel(i, j) = _space_assembly.u(x, y);
-        _cur_mesh->v_vel(i, j) = _space_assembly.v(x, y);
+        _cur_mesh->Temp(i, j) =
+            _space_assembly.boundaries()->initial_conds(x, y);
+        _cur_mesh->u_vel(i, j) = _space_assembly.boundaries()->u(x, y);
+        _cur_mesh->v_vel(i, j) = _space_assembly.boundaries()->v(x, y);
       }
     }
   }
@@ -52,13 +58,11 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
  public:
   using MeshT         = _Mesh;
   using SpaceAssembly = _SpaceAssembly;
+  using Base          = Base_Solver<MeshT, SpaceAssembly>;
 
-  ImplicitEuler_Solver(const real T_0 = 1.0, const real u_0 = 1.0,
-                       const real v_0 = 1.0, const real x_min = 0.0,
-                       const real x_max = 1.0, const real y_min = 0.0,
-                       const real y_max = 1.0)
-      : Base_Solver<_Mesh, _SpaceAssembly>(T_0, u_0, v_0, x_min, x_max, y_min,
-                                           y_max) {}
+  ImplicitEuler_Solver(
+      std::unique_ptr<BConds_Base> &&boundaries = Base::default_boundaries())
+      : Base_Solver<_Mesh, _SpaceAssembly>(std::move(boundaries)) {}
 
   void timestep(const real dt) {
     // First we need to construct our vector to use with the Thomas algorithm
@@ -68,9 +72,10 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
     constexpr int vec_dim = VecMeshX::extent(0) * VecMeshX::extent(1);
     using SolVec          = ND_Array<real, vec_dim>;
 
-    using Mtx      = ND_Array<real, vec_dim, 3>;
-    using MtxMesh  = ND_Array<real, VecMeshX::extent(0), VecMeshX::extent(1), 3>;
-    using MtxMeshT = ND_Array<real, VecMeshX::extent(1), VecMeshX::extent(0), 3>;
+    using Mtx     = ND_Array<real, vec_dim, 3>;
+    using MtxMesh = ND_Array<real, VecMeshX::extent(0), VecMeshX::extent(1), 3>;
+    using MtxMeshT =
+        ND_Array<real, VecMeshX::extent(1), VecMeshX::extent(0), 3>;
 
     const MeshT &mesh                   = *this->_cur_mesh;
     const SpaceAssembly &space_assembly = this->space_assembly();
@@ -81,7 +86,7 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
     // Then fill Mtx with our Dy Terms
     // And solve for our dT vector
     SolVec sol_dx;
-		VecMeshX &sol_dx_mesh = sol_dx.template reshape<VecMeshX>();
+    VecMeshX &sol_dx_mesh = sol_dx.template reshape<VecMeshX>();
 
     Mtx dx;
     MtxMeshT &dx_mesh = dx.template reshape<MtxMeshT>();
@@ -187,13 +192,14 @@ class RK1_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
  public:
   using MeshT         = _Mesh;
   using SpaceAssembly = _SpaceAssembly;
+  using Base          = Base_Solver<MeshT, SpaceAssembly>;
 
-  RK1_Solver(const real T_0 = 1.0, const real u_0 = 1.0, const real v_0 = 1.0,
-             const real x_min = 0.0, const real x_max = 1.0,
-             const real y_min = 0.0, const real y_max = 1.0)
-      : Base_Solver<_Mesh, _SpaceAssembly>(T_0, u_0, v_0, x_min, x_max, y_min,
-                                           y_max),
-        _partial_mesh(std::make_unique<MeshT>(x_min, x_max, y_min, y_max)) {}
+  RK1_Solver(
+      std::unique_ptr<BConds_Base> &&boundaries = Base::default_boundaries())
+      : Base_Solver<_Mesh, _SpaceAssembly>(boundaries),
+        _partial_mesh(std::make_unique<MeshT>(
+            boundaries->x_min(), boundaries->x_max(), boundaries->y_min(),
+            boundaries->y_max())) {}
 
   void timestep(const real sigma_ratio) {
     static bool once = false;
@@ -228,14 +234,17 @@ class RK4_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
  public:
   using MeshT         = _Mesh;
   using SpaceAssembly = _SpaceAssembly;
+  using Base          = Base_Solver<MeshT, SpaceAssembly>;
 
-  RK4_Solver(const real T_0 = 1.0, const real u_0 = 1.0, const real v_0 = 1.0,
-             const real x_min = 0.0, const real x_max = 1.0,
-             const real y_min = 0.0, const real y_max = 1.0)
-      : Base_Solver<_Mesh, _SpaceAssembly>(T_0, u_0, v_0, x_min, x_max, y_min,
-                                           y_max),
-        _partial_mesh_1(std::make_unique<MeshT>(x_min, x_max, y_min, y_max)),
-        _partial_mesh_2(std::make_unique<MeshT>(x_min, x_max, y_min, y_max)) {}
+  RK4_Solver(
+      std::unique_ptr<BConds_Base> &&boundaries = Base::default_boundaries())
+      : Base_Solver<_Mesh, _SpaceAssembly>(std::move(boundaries)),
+        _partial_mesh_1(
+            std::make_unique<MeshT>(boundaries->x_min(), boundaries->x_max(),
+                                    boundaries->y_min(), boundaries->y_max())),
+        _partial_mesh_2(std::make_unique<MeshT>(
+            boundaries->x_min(), boundaries->x_max(), boundaries->y_min(),
+            boundaries->y_max())) {}
 
   void timestep(const real sigma_ratio) {
     auto &mesh = *(this->_cur_mesh);
