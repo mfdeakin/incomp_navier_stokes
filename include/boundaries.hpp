@@ -48,8 +48,8 @@ class BConds_Base {
 
   // Functions needed by every implementation of the boundary conditions
   // These will probably be inlined, and if not, they're only needed for
-  // initialization, so who cares about the performance cost of an extra
-  // dereference and function call?
+  // boundaries calculations and initialization, so who cares about the
+  // performance cost of an extra dereference and function call?
   virtual real initial_conds(const real x, const real y) const noexcept = 0;
 
   virtual real boundary_x_min(const real y, const real time) const noexcept = 0;

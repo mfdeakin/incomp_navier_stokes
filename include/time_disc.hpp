@@ -17,13 +17,20 @@ class Base_Solver {
   using SpaceAssembly = EnergyAssembly<_SpaceDisc>;
 
   static std::unique_ptr<BConds_Base> default_boundaries() noexcept {
-    return std::make_unique<BConds_Part1>(1.0, 1.0, 1.0, 0.0, 1.0, 0.0, 1.0);
+    return std::make_unique<BConds_Part1>(1.0, 1.0, 1.0);
   }
 
+  [[nodiscard]] constexpr real time() const noexcept { return _time; }
+
+  [[nodiscard]] constexpr MeshT &mesh() const noexcept { return *_cur_mesh; }
+
+  [[nodiscard]] constexpr SpaceAssembly &space_assembly() noexcept {
+    return _space_assembly;
+  }
+
+ protected:
   Base_Solver(std::unique_ptr<BConds_Base> &&boundaries)
-      : _cur_mesh(
-            std::make_unique<MeshT>(boundaries->x_min(), boundaries->x_max(),
-                                    boundaries->y_min(), boundaries->y_max())),
+      : _cur_mesh(std::make_unique<MeshT>(boundaries.get())),
         _space_assembly(std::move(boundaries)),
         _time(0.0) {
     for(int i = 0; i < _cur_mesh->x_dim(); i++) {
@@ -39,15 +46,6 @@ class Base_Solver {
     }
   }
 
-  [[nodiscard]] constexpr real time() const noexcept { return _time; }
-
-  [[nodiscard]] constexpr MeshT &mesh() const noexcept { return *_cur_mesh; }
-
-  [[nodiscard]] constexpr SpaceAssembly &space_assembly() noexcept {
-    return _space_assembly;
-  }
-
- protected:
   std::unique_ptr<MeshT> _cur_mesh;
   SpaceAssembly _space_assembly;
   real _time;
@@ -240,11 +238,9 @@ class RK4_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
       std::unique_ptr<BConds_Base> &&boundaries = Base::default_boundaries())
       : Base_Solver<_Mesh, _SpaceAssembly>(std::move(boundaries)),
         _partial_mesh_1(
-            std::make_unique<MeshT>(boundaries->x_min(), boundaries->x_max(),
-                                    boundaries->y_min(), boundaries->y_max())),
-        _partial_mesh_2(std::make_unique<MeshT>(
-            boundaries->x_min(), boundaries->x_max(), boundaries->y_min(),
-            boundaries->y_max())) {}
+            std::make_unique<MeshT>(this->space_assembly().boundaries())),
+        _partial_mesh_2(
+            std::make_unique<MeshT>(this->space_assembly().boundaries())) {}
 
   void timestep(const real sigma_ratio) {
     auto &mesh = *(this->_cur_mesh);
