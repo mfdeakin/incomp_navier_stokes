@@ -6,15 +6,12 @@ enable_testing()
 
 include_directories(./include)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
+add_library(ins_solver)
+
+add_executable(fi_test ./src/fi_test.cpp)
+set_property(TARGET fi_test PROPERTY CXX_STANDARD 17)
+target_link_libraries(fi_test ins_solver gtest pthread)
+add_test(flux_int fi_test)
 
 find_package(pybind11 CONFIG REQUIRED)
 include_directories(${pybind11_INCLUDE_DIRS})
-
-add_executable(explicit ./src/explicit.cpp)
-
-add_executable(energy_tester ./src/test.cpp)
-add_test(energy_test energy_tester)
-
-target_link_libraries(energy_tester gtest pthread)
-target_link_libraries(explicit pybind11::embed)
