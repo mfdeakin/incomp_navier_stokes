@@ -3,6 +3,7 @@
 #define _THOMAS_HPP_
 
 #include "constants.hpp"
+#include "nd_array/nd_array.hpp"
 
 #include <limits>
 

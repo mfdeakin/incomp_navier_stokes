@@ -3,8 +3,10 @@
 #define _CONSTANTS_HPP_
 
 #include <limits>
+#include <tuple>
 
 using real = double;
+using triple = std::tuple<real, real, real>;
 
 constexpr real pi = 3.1415926535897932384626433832795;
 

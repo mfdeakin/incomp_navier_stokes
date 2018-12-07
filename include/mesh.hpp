@@ -57,20 +57,20 @@ class [[nodiscard]] Mesh {
   }
 
   // Stored Physical Values
-  [[nodiscard]] constexpr const real &Temp(const int i, const int j)
+  [[nodiscard]] constexpr const real &press(const int i, const int j)
       const noexcept {
-    return _temp(i, j);
+    return _press(i, j);
   }
 
-  [[nodiscard]] constexpr real &Temp(const int i, const int j) noexcept {
-    return _temp(i, j);
+  [[nodiscard]] constexpr real &press(const int i, const int j) noexcept {
+    return _press(i, j);
   }
 
-  [[nodiscard]] constexpr const ControlVolumes &Temp() const noexcept {
-    return _temp;
+  [[nodiscard]] constexpr const ControlVolumes &press() const noexcept {
+    return _press;
   }
 
-  [[nodiscard]] constexpr ControlVolumes &Temp() noexcept { return _temp; }
+  [[nodiscard]] constexpr ControlVolumes &press() noexcept { return _press; }
 
   [[nodiscard]] constexpr const real &u_vel(const int i, const int j)
       const noexcept {
@@ -103,9 +103,9 @@ class [[nodiscard]] Mesh {
   [[nodiscard]] constexpr ControlVolumes &v_vel() noexcept { return _v_vel; }
 
   // Interpolated Physical Values
-  [[nodiscard]] constexpr real interpolate_T(const real x, const real y)
+  [[nodiscard]] constexpr real interpolate_P(const real x, const real y)
       const noexcept {
-    return interpolate_internal(_temp, x, y);
+    return interpolate_internal(_press, x, y);
   }
 
   [[nodiscard]] constexpr real interpolate_u(const real x, const real y)
@@ -118,6 +118,18 @@ class [[nodiscard]] Mesh {
     return interpolate_internal(_v_vel, x, y);
   }
 
+  [[nodiscard]] constexpr ControlVolumes *pressure_data() noexcept {
+    return &_press;
+  }
+
+  [[nodiscard]] constexpr ControlVolumes *u_vel_data() noexcept {
+    return &_u_vel;
+  }
+
+  [[nodiscard]] constexpr ControlVolumes *v_vel_data() noexcept {
+    return &_v_vel;
+  }
+
   constexpr Mesh(const real x_min, const real x_max, const real y_min,
                  const real y_max) noexcept
       : _x_min(x_min),
@@ -126,11 +138,11 @@ class [[nodiscard]] Mesh {
         _y_max(y_max),
         _dx((x_max - x_min) / ctrl_vols_x),
         _dy((y_max - y_min) / ctrl_vols_y),
-        _temp(),
+        _press(),
         _u_vel(),
         _v_vel() {}
 
-  constexpr Mesh(const BConds_Base * bconds)
+  constexpr Mesh(const BConds_Base *bconds)
       : Mesh(bconds->x_min(), bconds->x_max(), bconds->y_min(),
              bconds->y_max()) {}
 
@@ -182,7 +194,7 @@ class [[nodiscard]] Mesh {
   real _y_min, _y_max;
   real _dx, _dy;
 
-  ControlVolumes _temp;
+  ControlVolumes _press;
   ControlVolumes _u_vel, _v_vel;
 };
 

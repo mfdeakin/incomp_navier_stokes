@@ -14,7 +14,7 @@ template <typename _Mesh, typename _SpaceDisc>
 class Base_Solver {
  public:
   using MeshT         = _Mesh;
-  using SpaceAssembly = EnergyAssembly<_SpaceDisc>;
+  using SpaceAssembly = INSAssembly<_SpaceDisc>;
 
   static std::unique_ptr<BConds_Base> default_boundaries() noexcept {
     return std::make_unique<BConds_Part1>(1.0, 1.0, 1.0);
@@ -195,9 +195,8 @@ class RK1_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
   RK1_Solver(
       std::unique_ptr<BConds_Base> &&boundaries = Base::default_boundaries())
       : Base_Solver<_Mesh, _SpaceAssembly>(boundaries),
-        _partial_mesh(std::make_unique<MeshT>(
-            boundaries->x_min(), boundaries->x_max(), boundaries->y_min(),
-            boundaries->y_max())) {}
+        _partial_mesh(
+            std::make_unique<MeshT>(this->space_assembly().boundaries())) {}
 
   void timestep(const real sigma_ratio) {
     static bool once = false;
