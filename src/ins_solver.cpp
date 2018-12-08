@@ -12,6 +12,8 @@
 
 namespace py = pybind11;
 
+// This just exports all of the objects we might need for
+
 template <int ctrl_x, int ctrl_y>
 py::class_<Mesh<ctrl_x, ctrl_y> > def_mesh(py::module &module) {
   using MeshT = Mesh<ctrl_x, ctrl_y>;
@@ -46,6 +48,16 @@ py::class_<Mesh<ctrl_x, ctrl_y> > def_mesh(py::module &module) {
     return a;
   });
 
+  module.def("x_y_coords", [](const MeshT &m) {
+    auto [x, y] = m.x_y_coords();
+    std::pair<py::array, py::array> a{
+        py::array(ctrl_x * ctrl_y, reinterpret_cast<real *>(&x))
+            .attr("reshape")(ctrl_x, ctrl_y),
+        py::array(ctrl_x * ctrl_y, reinterpret_cast<real *>(&y))
+            .attr("reshape")(ctrl_x, ctrl_y)};
+		return a;
+  });
+
   return mesh;
 }
 
@@ -63,18 +75,24 @@ py::class_<BCond> def_bcond(py::module &module, const std::string &name) {
       .def("boundary_y_max", &BCond::boundary_y_max)
       .def("u", &BCond::u)
       .def("v", &BCond::v)
-      .def("P_0", &BCond::P_0)
-      .def("u_0", &BCond::u_0)
-      .def("v_0", &BCond::v_0)
-      .def("beta", &BCond::beta)
+      // pybind11 seems to have a bug requiring the method pointer to be casted
+      // to the inherited type
+      .def("P_0", (real(BCond::*)()) & BCond::P_0)
+      .def("u_0", (real(BCond::*)()) & BCond::u_0)
+      .def("v_0", (real(BCond::*)()) & BCond::v_0)
+      .def("beta", (real(BCond::*)()) & BCond::beta)
+      .def("init_mesh", &BCond::template init_mesh<Mesh<10, 10> >)
       .def("init_mesh", &BCond::template init_mesh<Mesh<20, 20> >)
       .def("init_mesh", &BCond::template init_mesh<Mesh<40, 40> >)
       .def("init_mesh", &BCond::template init_mesh<Mesh<80, 80> >)
       .def("init_mesh", &BCond::template init_mesh<Mesh<160, 160> >)
+      .def("init_mesh", &BCond::template init_mesh<Mesh<1024, 1024> >)
+      .def("flux_soln", &BCond::template flux_int_fill<Mesh<10, 10> >)
       .def("flux_soln", &BCond::template flux_int_fill<Mesh<20, 20> >)
       .def("flux_soln", &BCond::template flux_int_fill<Mesh<40, 40> >)
       .def("flux_soln", &BCond::template flux_int_fill<Mesh<80, 80> >)
-      .def("flux_soln", &BCond::template flux_int_fill<Mesh<160, 160> >);
+      .def("flux_soln", &BCond::template flux_int_fill<Mesh<160, 160> >)
+      .def("flux_soln", &BCond::template flux_int_fill<Mesh<1024, 1024> >);
 
   return bc;
 }
@@ -84,16 +102,20 @@ PYBIND11_MODULE(ins_solver, module) {
       .def("solution", &BConds_Part1::solution)
       .def("flux_int_solution", &BConds_Part1::flux_int_solution);
 
+  def_mesh<10, 10>(module);
   def_mesh<20, 20>(module);
   def_mesh<40, 40>(module);
   def_mesh<80, 80>(module);
   def_mesh<160, 160>(module);
+  def_mesh<1024, 1024>(module);
 
   using Assembly = INSAssembly<SecondOrderCentered>;
   py::class_<Assembly>(module, "INSAssembly")
       .def(py::init<const BConds_Part1 &>(), py::arg("boundaries"))
+      .def("flux_assembly", &Assembly::flux_assembly<Mesh<10, 10> >)
       .def("flux_assembly", &Assembly::flux_assembly<Mesh<20, 20> >)
       .def("flux_assembly", &Assembly::flux_assembly<Mesh<40, 40> >)
       .def("flux_assembly", &Assembly::flux_assembly<Mesh<80, 80> >)
-      .def("flux_assembly", &Assembly::flux_assembly<Mesh<160, 160> >);
+      .def("flux_assembly", &Assembly::flux_assembly<Mesh<160, 160> >)
+      .def("flux_assembly", &Assembly::flux_assembly<Mesh<1024, 1024> >);
 }

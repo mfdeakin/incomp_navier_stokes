@@ -48,15 +48,17 @@ class BConds_Base {
       for(int j = 0; j < mesh.y_dim(); j++) {
         const real x     = mesh.x_median(i);
         const real y     = mesh.y_median(j);
-        mesh.press(i, j) = pressure_initial(x, y);
-        mesh.u_vel(i, j) = u_vel_initial(x, y);
-        mesh.v_vel(i, j) = v_vel_initial(x, y);
+        mesh.press(i, j) = pressure_initial(x, y, mesh.dx(), mesh.dy());
+        mesh.u_vel(i, j) = u_vel_initial(x, y, mesh.dx(), mesh.dy());
+        mesh.v_vel(i, j) = v_vel_initial(x, y, mesh.dx(), mesh.dy());
       }
     }
   }
 
-  triple initial_conds(const real x, const real y) const noexcept {
-    return {pressure_initial(x, y), u_vel_initial(x, y), v_vel_initial(x, y)};
+  triple initial_conds(const real x, const real y, const real dx,
+                       const real dy) const noexcept {
+    return {pressure_initial(x, y, dx, dy), u_vel_initial(x, y, dx, dy),
+            v_vel_initial(x, y, dx, dy)};
   };
 
   triple boundary_x_min(const real y, const real time) const noexcept {
@@ -76,7 +78,8 @@ class BConds_Base {
             v_vel_boundary_y_max(x, time)};
   }
 
-  virtual real pressure_initial(const real x, const real y) const noexcept = 0;
+  virtual real pressure_initial(const real x, const real y, const real dx,
+                                const real dy) const noexcept = 0;
   virtual real pressure_boundary_x_min(const real y, const real time) const
       noexcept = 0;
   virtual real pressure_boundary_x_max(const real y, const real time) const
@@ -86,7 +89,8 @@ class BConds_Base {
   virtual real pressure_boundary_y_max(const real x, const real time) const
       noexcept = 0;
 
-  virtual real u_vel_initial(const real x, const real y) const noexcept = 0;
+  virtual real u_vel_initial(const real x, const real y, const real dx,
+                             const real dy) const noexcept = 0;
   virtual real u_vel_boundary_x_min(const real y, const real time) const
       noexcept = 0;
   virtual real u_vel_boundary_x_max(const real y, const real time) const
@@ -96,7 +100,8 @@ class BConds_Base {
   virtual real u_vel_boundary_y_max(const real x, const real time) const
       noexcept = 0;
 
-  virtual real v_vel_initial(const real x, const real y) const noexcept = 0;
+  virtual real v_vel_initial(const real x, const real y, const real dx,
+                             const real dy) const noexcept = 0;
   virtual real v_vel_boundary_x_min(const real y, const real time) const
       noexcept = 0;
   virtual real v_vel_boundary_x_max(const real y, const real time) const
@@ -131,6 +136,14 @@ class BConds_Part1 : public BConds_Base {
   [[nodiscard]] real pressure(const real x, const real y, const real time) const
       noexcept {
     return P_0() * std::cos(pi * x) * std::cos(pi * y);
+  }
+
+  [[nodiscard]] real pressure_avg_initial(const real x, const real y,
+                                          const real dx, const real dy) const
+      noexcept {
+    return P_0() / (pi * pi * dx * dy) *
+           (std::sin(pi * (x + dx / 2.0)) - std::sin(pi * (x - dx / 2.0))) *
+           (std::sin(pi * (y + dy / 2.0)) - std::sin(pi * (y - dy / 2.0)));
   }
 
   [[nodiscard]] real u(const real x, const real y, const real time) const
@@ -231,7 +244,7 @@ class BConds_Part1 : public BConds_Base {
               v_0() * (v_0() * s2y * s2x * s2x +
                        u_0() * sy * s2y * (cx * s2x + 2.0 * c2x * sx) +
                        5.0 * pi * sy * s2x / reynolds));
-    return {-p_term, -u_term, -v_term};
+    return {p_term, u_term, v_term};
   }
 
   template <typename MeshT>
@@ -249,9 +262,9 @@ class BConds_Part1 : public BConds_Base {
     }
   }
 
-  [[nodiscard]] real pressure_initial(const real x, const real y) const
-      noexcept {
-    return pressure(x, y, 0.0);
+  [[nodiscard]] real pressure_initial(const real x, const real y, const real dx,
+                                      const real dy) const noexcept {
+    return pressure_avg_initial(x, y, dx, dy);
   }
 
   [[nodiscard]] real pressure_boundary_x_min(const real y,
@@ -274,7 +287,8 @@ class BConds_Part1 : public BConds_Base {
     return pressure(x, y_max(), time);
   }
 
-  [[nodiscard]] real u_vel_initial(const real x, const real y) const noexcept {
+  [[nodiscard]] real u_vel_initial(const real x, const real y, const real dx,
+                                   const real dy) const noexcept {
     return u(x, y, 0.0);
   }
 
@@ -298,7 +312,8 @@ class BConds_Part1 : public BConds_Base {
     return u(x, y_max(), time);
   }
 
-  [[nodiscard]] real v_vel_initial(const real x, const real y) const noexcept {
+  [[nodiscard]] real v_vel_initial(const real x, const real y, const real dx,
+                                   const real dy) const noexcept {
     return v(x, y, 0.0);
   }
 

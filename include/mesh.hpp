@@ -130,6 +130,18 @@ class [[nodiscard]] Mesh {
     return &_v_vel;
   }
 
+  [[nodiscard]] constexpr std::pair<ControlVolumes, ControlVolumes> x_y_coords()
+      const noexcept {
+    ControlVolumes x, y;
+    for(int i = 0; i < ctrl_vols_x; i++) {
+      for(int j = 0; j < ctrl_vols_y; j++) {
+        x(i, j) = x_median(i);
+        y(i, j) = y_median(j);
+      }
+    }
+		return {x, y};
+  }
+
   constexpr Mesh(const real x_min, const real x_max, const real y_min,
                  const real y_max) noexcept
       : _x_min(x_min),
