@@ -139,7 +139,7 @@ class [[nodiscard]] Mesh {
         y(i, j) = y_median(j);
       }
     }
-		return {x, y};
+    return {x, y};
   }
 
   constexpr Mesh(const real x_min, const real x_max, const real y_min,
@@ -156,10 +156,20 @@ class [[nodiscard]] Mesh {
 
   constexpr Mesh(const BConds_Base *bconds)
       : Mesh(bconds->x_min(), bconds->x_max(), bconds->y_min(),
-             bconds->y_max()) {}
+             bconds->y_max()) {
+    bconds->init_mesh(*this);
+  }
 
   constexpr Mesh(const Mesh<ctrl_vols_x, ctrl_vols_y> &src) noexcept
-      : Mesh(src._x_min, src._x_max, src._y_min, src._y_max) {}
+      : Mesh(src._x_min, src._x_max, src._y_min, src._y_max) {
+    for(int i = 0; i < ctrl_vols_x; i++) {
+      for(int j = 0; j < ctrl_vols_y; j++) {
+        press(i, j) = src.press(i, j);
+        u_vel(i, j) = src.u_vel(i, j);
+        v_vel(i, j) = src.v_vel(i, j);
+      }
+    }
+  }
 
  protected:
   [[nodiscard]] constexpr real interpolate_internal(
