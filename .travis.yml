@@ -53,11 +53,11 @@ script:
 - pybind_dir=/home/travis/miniconda/pkgs/pybind11-2.2.4-py37hfd86e86_0/share/cmake/pybind11
 - cmake -D CMAKE_BUILD_TYPE=Debug -D CMAKE_CXX_FLAGS="-fprofile-arcs -ftest-coverage -fsanitize=address" -D pybind11_DIR=${pybind_dir} ./
 - make VERBOSE=1 -j 4
-- ctest -VV
+- #ctest -VV
 
 after_script:
 - cd ${TRAVIS_BUILD_DIR}
-- lcov --directory . --capture --output-file coverage.info
-- lcov --remove coverage.info '/usr/*' --output-file coverage.info
-- lcov --list coverage.info
-- bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
+- #lcov --directory . --capture --output-file coverage.info
+- #lcov --remove coverage.info '/usr/*' --output-file coverage.info
+- #lcov --list coverage.info
+- #bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
