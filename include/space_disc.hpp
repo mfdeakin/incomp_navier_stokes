@@ -14,7 +14,7 @@ class [[nodiscard]] INSAssembly : public _SpaceDisc {
   using SpaceDisc = _SpaceDisc;
 
   static std::unique_ptr<BConds_Base> default_boundaries() noexcept {
-    return std::make_unique<BConds_Part1>(1.0, 1.0, 1.0, 0.0, 1.0, 0.0, 1.0);
+    return std::make_unique<BConds_Part1>(1.0, 1.0, 1.0, 1.0, 0.0, 1.0, 0.0, 1.0);
   }
 
   template <typename MeshT>
@@ -303,7 +303,7 @@ class [[nodiscard]] SecondOrderCentered {
       const real x = mesh.x_median(i);
       return boundaries_ref().u_vel_boundary_y_max(x, time) *
              boundaries_ref().v_vel_boundary_y_max(x, time);
-    } else if(i == -1) {
+    } else if(j == -1) {
       const real x = mesh.x_median(i);
       return boundaries_ref().u_vel_boundary_y_min(x, time) *
              boundaries_ref().v_vel_boundary_y_min(x, time);
