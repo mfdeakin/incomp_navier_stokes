@@ -3,6 +3,7 @@
 #define _BOUNDARIES_HPP_
 
 #include "constants.hpp"
+#include "multivar.hpp"
 
 #include <cmath>
 #include <functional>
@@ -43,7 +44,7 @@ class BConds_Base {
   // boundaries calculations, so the performance cost of an extra dereference
   // and function call shouldn't be that bad
   template <typename MeshT>
-  void init_mesh(MeshT &mesh) {
+  void init_mesh(MeshT &mesh) const noexcept {
     for(int i = 0; i < mesh.x_dim(); i++) {
       for(int j = 0; j < mesh.y_dim(); j++) {
         const real x     = mesh.x_median(i);
