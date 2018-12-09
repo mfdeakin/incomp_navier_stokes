@@ -3,7 +3,6 @@
 #define _CONSTANTS_HPP_
 
 #include <limits>
-#include <tuple>
 
 using real = double;
 

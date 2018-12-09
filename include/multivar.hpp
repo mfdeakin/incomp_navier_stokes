@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <initializer_list>
+#include <utility>
 
 class triple : public ND_Array<real, 3> {
  public:
