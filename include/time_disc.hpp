@@ -4,6 +4,7 @@
 
 #include "boundaries.hpp"
 #include "constants.hpp"
+#include "space_disc.hpp"
 #include "thomas.hpp"
 
 #include <algorithm>
@@ -17,7 +18,8 @@ class Base_Solver {
   using SpaceAssembly = INSAssembly<_SpaceDisc>;
 
   static std::unique_ptr<BConds_Base> default_boundaries() noexcept {
-    return std::make_unique<BConds_Part1>(1.0, 1.0, 1.0);
+    return std::make_unique<BConds_Part1>(1.0, 1.0, 1.0, 1.0, 0.0, 1.0, 0.0,
+                                          1.0);
   }
 
   [[nodiscard]] constexpr real time() const noexcept { return _time; }
@@ -33,17 +35,7 @@ class Base_Solver {
       : _cur_mesh(std::make_unique<MeshT>(boundaries.get())),
         _space_assembly(std::move(boundaries)),
         _time(0.0) {
-    for(int i = 0; i < _cur_mesh->x_dim(); i++) {
-      for(int j = 0; j < _cur_mesh->y_dim(); j++) {
-        const real x = _cur_mesh->x_median(i);
-        const real y = _cur_mesh->y_median(j);
-
-        _cur_mesh->Temp(i, j) =
-            _space_assembly.boundaries()->initial_conds(x, y);
-        _cur_mesh->u_vel(i, j) = _space_assembly.boundaries()->u(x, y);
-        _cur_mesh->v_vel(i, j) = _space_assembly.boundaries()->v(x, y);
-      }
-    }
+    _space_assembly.boundaries()->init_mesh(*_cur_mesh);
   }
 
   std::unique_ptr<MeshT> _cur_mesh;
@@ -51,16 +43,20 @@ class Base_Solver {
   real _time;
 };
 
-template <typename _Mesh, typename _SpaceAssembly>
-class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
+template <typename _Mesh, typename _SpaceDisc>
+class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceDisc> {
  public:
   using MeshT         = _Mesh;
-  using SpaceAssembly = _SpaceAssembly;
-  using Base          = Base_Solver<MeshT, SpaceAssembly>;
+  using SpaceAssembly = INSAssembly<_SpaceDisc>;
+  using Base          = Base_Solver<MeshT, _SpaceDisc>;
 
   ImplicitEuler_Solver(
       std::unique_ptr<BConds_Base> &&boundaries = Base::default_boundaries())
-      : Base_Solver<_Mesh, _SpaceAssembly>(std::move(boundaries)) {}
+      : Base(std::move(boundaries)) {}
+
+  constexpr ImplicitEuler_Solver(const BConds_Part1 &boundaries) noexcept
+      : ImplicitEuler_Solver(
+            std::move(std::make_unique<BConds_Part1>(boundaries))) {}
 
   void timestep(const real dt) {
     // First we need to construct our vector to use with the Thomas algorithm
@@ -104,10 +100,8 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
     }
     for(int i = 0; i < MeshT::x_dim(); i++) {
       for(int j = 0; j < MeshT::y_dim(); j++) {
-        sol_dx_mesh(i + 1, j) =
-            (space_assembly.flux_integral(mesh, i, j, this->time()) +
-             space_assembly.source_fd(mesh, i, j, this->time())) *
-            dt;
+        const auto [p_f, u_f, v_f] =
+            space_assembly.flux_integral(mesh, i, j, this->time());
         assert(!std::isnan(sol_dx_mesh(i + 1, j)));
         // (-u_{i - 1, j} / (2.0 \Delta x) - 1.0 / (Re * Pr * \Delta x^2))
         // \delta T_{i - 1, j} \Delta t
@@ -177,7 +171,7 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
     for(int i = 0, m = 0; i < MeshT::x_dim(); i++) {
       for(int j = 0; j < MeshT::y_dim(); j++, m++) {
         assert(!std::isnan(transpose_sol(j, i)));
-        this->_cur_mesh->Temp(i, j) -= transpose_sol(j, i);
+        this->_cur_mesh->press(i, j) -= transpose_sol(j, i);
       }
     }
 
@@ -185,22 +179,24 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
   }
 };
 
-template <typename _Mesh, typename _SpaceAssembly>
-class RK1_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
+template <typename _Mesh, typename _SpaceDisc>
+class RK1_Solver : public Base_Solver<_Mesh, _SpaceDisc> {
  public:
   using MeshT         = _Mesh;
-  using SpaceAssembly = _SpaceAssembly;
-  using Base          = Base_Solver<MeshT, SpaceAssembly>;
+  using SpaceAssembly = INSAssembly<_SpaceDisc>;
+  using Base          = Base_Solver<MeshT, _SpaceDisc>;
 
   RK1_Solver(
       std::unique_ptr<BConds_Base> &&boundaries = Base::default_boundaries())
-      : Base_Solver<_Mesh, _SpaceAssembly>(boundaries),
+      : Base(std::move(boundaries)),
         _partial_mesh(
             std::make_unique<MeshT>(this->space_assembly().boundaries())) {}
 
+  constexpr RK1_Solver(const BConds_Part1 &boundaries) noexcept
+      : RK1_Solver(std::move(std::make_unique<BConds_Part1>(boundaries))) {}
+
   void timestep(const real sigma_ratio) {
-    static bool once = false;
-    auto &mesh       = *(this->_cur_mesh);
+    auto &mesh = *(this->_cur_mesh);
     // |sigma| = |1 + \lambda \Delta t|
     // Approximate \lambda with just the second derivative term,
     // since it will dominate with small \Delta x.
@@ -210,11 +206,6 @@ class RK1_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
     const real dt =
         sigma_ratio * mesh.dx() * mesh.dx() * reynolds * prandtl / 4.0;
 
-    if(!once) {
-      printf("RK1 dt: % .6e\n", dt);
-      once = true;
-    }
-
     this->_space_assembly.flux_assembly(*(this->_cur_mesh), *(this->_cur_mesh),
                                         *_partial_mesh, this->time(), dt);
 
@@ -223,6 +214,8 @@ class RK1_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
   }
 
  protected:
+  // Note that storing the mesh as a pointer here shouldn't affect performance -
+  // the number of dereferences should be the same
   std::unique_ptr<MeshT> _partial_mesh;
 };
 
@@ -240,6 +233,9 @@ class RK4_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
             std::make_unique<MeshT>(this->space_assembly().boundaries())),
         _partial_mesh_2(
             std::make_unique<MeshT>(this->space_assembly().boundaries())) {}
+
+  constexpr RK4_Solver(const BConds_Part1 &boundaries) noexcept
+      : RK4_Solver(std::move(std::make_unique<BConds_Part1>(boundaries))) {}
 
   void timestep(const real sigma_ratio) {
     auto &mesh = *(this->_cur_mesh);
