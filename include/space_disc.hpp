@@ -40,8 +40,8 @@ class [[nodiscard]] INSAssembly : public _SpaceDisc {
       return v1_v2 - dv1_dx2 / reynolds;
     };
 
-    const real u2_right = this->u2_x_flux(mesh, i, j, time);
-    const real u2_left  = this->u2_x_flux(mesh, i - 1, j, time);
+    const real u2_right = u_right * u_right;
+    const real u2_left  = u_left * u_left;
     const real p_right  = this->press_x_flux(mesh, i, j, time);
     const real p_left   = this->press_x_flux(mesh, i - 1, j, time);
     const real du_right = this->du_x_flux(mesh, i, j, time);
@@ -50,16 +50,18 @@ class [[nodiscard]] INSAssembly : public _SpaceDisc {
                            diag_term(u2_left, p_left, du_left)) /
                           mesh.dx();
 
-    const real uv_above = this->uv_y_flux(mesh, i, j, time);
-    const real uv_below = this->uv_y_flux(mesh, i, j - 1, time);
+    const real u_above  = this->u_y_flux(mesh, i, j, time);
+    const real u_below  = this->u_y_flux(mesh, i, j - 1, time);
+    const real uv_above = u_above * v_above;
+    const real uv_below = u_below * v_below;
     const real du_above = this->du_y_flux(mesh, i, j, time);
     const real du_below = this->du_y_flux(mesh, i, j - 1, time);
     const real u_g_term =
         (cross_term(uv_above, du_above) - cross_term(uv_below, du_below)) /
         mesh.dy();
 
-    const real v2_above = this->v2_y_flux(mesh, i, j, time);
-    const real v2_below = this->v2_y_flux(mesh, i, j - 1, time);
+    const real v2_above = v_above * v_above;
+    const real v2_below = v_below * v_below;
     const real p_above  = this->press_y_flux(mesh, i, j, time);
     const real p_below  = this->press_y_flux(mesh, i, j - 1, time);
     const real dv_above = this->dv_y_flux(mesh, i, j, time);
@@ -68,8 +70,10 @@ class [[nodiscard]] INSAssembly : public _SpaceDisc {
                            diag_term(v2_below, p_below, dv_below)) /
                           mesh.dy();
 
-    const real uv_right = this->uv_x_flux(mesh, i, j, time);
-    const real uv_left  = this->uv_x_flux(mesh, i - 1, j, time);
+    const real v_right  = this->v_x_flux(mesh, i, j, time);
+    const real v_left   = this->v_x_flux(mesh, i - 1, j, time);
+    const real uv_right = u_right * v_right;
+    const real uv_left  = u_left * v_left;
     const real dv_right = this->dv_x_flux(mesh, i, j, time);
     const real dv_left  = this->dv_x_flux(mesh, i - 1, j, time);
     const real v_g_term =
@@ -300,6 +304,38 @@ class [[nodiscard]] SecondOrderCentered {
     }
   }
 
+  // Centered FV approximation to u_{i, j+1/2}
+  template <typename MeshT>
+  [[nodiscard]] constexpr real u_y_flux(const MeshT &mesh, const int i,
+                                        const int j, const real time)
+      const noexcept {
+    if(j == mesh.y_dim() - 1) {
+      const real x = mesh.x_median(i);
+      return boundaries_ref().u_vel_boundary_y_max(x, time);
+    } else if(j == -1) {
+      const real x = mesh.x_median(i);
+      return boundaries_ref().u_vel_boundary_y_min(x, time);
+    } else {
+      return (mesh.u_vel(i, j) + mesh.u_vel(i, j + 1)) / 2.0;
+    }
+  }
+
+  // Centered FV approximation to v_{i+1/2, j}
+  template <typename MeshT>
+  [[nodiscard]] constexpr real v_x_flux(const MeshT &mesh, const int i,
+                                        const int j, const real time)
+      const noexcept {
+    if(i == mesh.x_dim() - 1) {
+      const real y = mesh.y_median(j);
+      return boundaries_ref().v_vel_boundary_x_max(y, time);
+    } else if(i == -1) {
+      const real y = mesh.y_median(j);
+      return boundaries_ref().v_vel_boundary_x_min(y, time);
+    } else {
+      return (mesh.v_vel(i, j) + mesh.v_vel(i + 1, j)) / 2.0;
+    }
+  }
+
   // Centered FV approximation to v_{i, j+1/2}
   template <typename MeshT>
   [[nodiscard]] constexpr real v_y_flux(const MeshT &mesh, const int i,
@@ -313,86 +349,6 @@ class [[nodiscard]] SecondOrderCentered {
       return boundaries_ref().v_vel_boundary_y_min(x, time);
     } else {
       return (mesh.v_vel(i, j) + mesh.v_vel(i, j + 1)) / 2.0;
-    }
-  }
-
-  // Centered FV approximation to u^2_{i+1/2, j}
-  template <typename MeshT>
-  [[nodiscard]] constexpr real u2_x_flux(const MeshT &mesh, const int i,
-                                         const int j, const real time)
-      const noexcept {
-    if(i == mesh.x_dim() - 1) {
-      const real y   = mesh.y_median(j);
-      const real val = boundaries_ref().u_vel_boundary_x_max(y, time);
-      return val * val;
-    } else if(i == -1) {
-      const real y   = mesh.y_median(j);
-      const real val = boundaries_ref().u_vel_boundary_x_min(y, time);
-      return val * val;
-    } else {
-      return (mesh.u_vel(i, j) * mesh.u_vel(i, j) +
-              mesh.u_vel(i + 1, j) * mesh.u_vel(i + 1, j)) /
-             2.0;
-    }
-  }
-
-  // Centered FV approximation to v^2_{i, j+1/2}
-  template <typename MeshT>
-  [[nodiscard]] constexpr real v2_y_flux(const MeshT &mesh, const int i,
-                                         const int j, const real time)
-      const noexcept {
-    if(j == mesh.y_dim() - 1) {
-      const real x   = mesh.x_median(i);
-      const real val = boundaries_ref().v_vel_boundary_y_max(x, time);
-      return val * val;
-    } else if(j == -1) {
-      const real x   = mesh.x_median(i);
-      const real val = boundaries_ref().v_vel_boundary_y_min(x, time);
-      return val * val;
-    } else {
-      return (mesh.v_vel(i, j) * mesh.v_vel(i, j) +
-              mesh.v_vel(i, j + 1) * mesh.v_vel(i, j + 1)) /
-             2.0;
-    }
-  }
-
-  // Centered FV approximation to uv_{i+1/2, j}
-  template <typename MeshT>
-  [[nodiscard]] constexpr real uv_x_flux(const MeshT &mesh, const int i,
-                                         const int j, const real time)
-      const noexcept {
-    if(i == mesh.x_dim() - 1) {
-      const real y = mesh.y_median(j);
-      return boundaries_ref().u_vel_boundary_x_max(y, time) *
-             boundaries_ref().v_vel_boundary_x_max(y, time);
-    } else if(i == -1) {
-      const real y = mesh.y_median(j);
-      return boundaries_ref().u_vel_boundary_x_min(y, time) *
-             boundaries_ref().v_vel_boundary_x_min(y, time);
-    } else {
-      return (mesh.u_vel(i, j) * mesh.v_vel(i, j) +
-              mesh.u_vel(i + 1, j) * mesh.v_vel(i + 1, j)) /
-             2.0;
-    }
-  }
-
-  // Centered FV approximation to uv_{i, j+1/2}
-  template <typename MeshT>
-  [[nodiscard]] constexpr real uv_y_flux(const MeshT &mesh, const int i,
-                                         const int j, const real time)
-      const noexcept {
-    if(j == mesh.y_dim() - 1) {
-      const real x = mesh.x_median(i);
-      return boundaries_ref().u_vel_boundary_y_max(x, time) *
-             boundaries_ref().v_vel_boundary_y_max(x, time);
-    } else if(j == -1) {
-      const real x = mesh.x_median(i);
-      return boundaries_ref().u_vel_boundary_y_min(x, time) *
-             boundaries_ref().v_vel_boundary_y_min(x, time);
-    } else {
-      return (mesh.u_vel(i, j) * mesh.v_vel(i, j) +
-              mesh.u_vel(i, j + 1) * mesh.v_vel(i, j + 1)) /
-             2.0;
     }
   }
 
