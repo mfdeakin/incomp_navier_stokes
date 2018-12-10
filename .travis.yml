@@ -51,7 +51,8 @@ script:
 # /home/travis/miniconda/pkgs/pybind11-2.2.4-py37h2d50403_0/share/cmake/pybind11/pybind11Config.cmake
 # /home/travis/miniconda/envs/test-environment/share/cmake/pybind11/pybind11Config.cmake
 - pybind_dir=/home/travis/miniconda/pkgs/pybind11-2.2.4-py37hfd86e86_0/share/cmake/pybind11
-- cmake -D CMAKE_BUILD_TYPE=Debug -D CMAKE_CXX_FLAGS="-fprofile-arcs -ftest-coverage -fsanitize=address" -D pybind11_DIR=${pybind_dir} ./
+# pybind11 is causing too many issues, ignore it for now
+- cmake -D CMAKE_BUILD_TYPE=Debug -D CMAKE_CXX_FLAGS="-fprofile-arcs -ftest-coverage -fsanitize=address" -D pybind11_DIR=${pybind_dir} -D PYTHON_INTERFACE=OFF ./
 - make VERBOSE=1 -j 4
 - #ctest -VV
 
