@@ -2,7 +2,8 @@
 
 from numpy import sum, log2, sqrt
 
-from ins_solver import Mesh_1024x1024, Mesh_160x160, Mesh_80x80, Mesh_40x40, Mesh_20x20, Mesh_10x10
+from ins_solver import Mesh_160x160, Mesh_80x80, Mesh_40x40, Mesh_20x20, Mesh_10x10
+from ins_solver import RK1_160x160, RK1_80x80, RK1_40x40, RK1_20x20, RK1_10x10
 from ins_solver import to_np_array, x_y_coords
 from ins_solver import BConds_Part1
 from ins_solver import INSAssembly
@@ -114,15 +115,56 @@ print("40 Convergence Rate Pressure: {} u: {} v: {}".format(log2(p_err_020 / p_e
                                                             log2(u_err_020 / u_err_040),
                                                             log2(v_err_020 / v_err_040)))
 print("80x80")
-p_err_080, u_err_080, v_err_080 = plot_errs(Mesh_80x80)
+p_err_080, u_err_080, v_err_080 = plot_errs(Mesh_80x80, False)
 print("80 Convergence Rate Pressure: {} u: {} v: {}".format(log2(p_err_040 / p_err_080),
                                                             log2(u_err_040 / u_err_080),
                                                             log2(v_err_040 / v_err_080)))
 print("160x160")
-p_err_160, u_err_160, v_err_160 = plot_errs(Mesh_160x160)
+p_err_160, u_err_160, v_err_160 = plot_errs(Mesh_160x160, True)
 print("160 Convergence Rate Pressure: {} u: {} v: {}".format(log2(p_err_080 / p_err_160),
                                                              log2(u_err_080 / u_err_160),
                                                              log2(v_err_080 / v_err_160)))
 
-
 show()
+
+bc = BConds_Part1()
+ts = RK1_160x160(bc)
+print("Getting x, y, coordinates")
+x, y = x_y_coords(ts.mesh())
+print("Getting values")
+p, u, v = to_np_array(ts.mesh())
+m = Mesh_160x160(bc)
+p_e, u_e, v_e = to_np_array(m)
+print("P_0", bc.P_0())
+print("u_0", bc.u_0())
+print("v_0", bc.v_0())
+print("Beta", bc.beta())
+print("x_min", bc.x_min())
+print("x_max", bc.x_max())
+print("y_min", bc.y_min())
+print("y_max", bc.y_max())
+print("Computed", p)
+print("Expected", p_e)
+print("Error", p - p_e)
+assembly = ts.space_assembly()
+# bc_ref = assembly.boundaries()
+# print("P_0", bc_ref.P_0())
+# print("u_0", bc_ref.u_0())
+# print("v_0", bc_ref.v_0())
+# print("Beta", bc_ref.beta())
+# print("x_min", bc_ref.x_min())
+# print("x_max", bc_ref.x_max())
+# print("y_min", bc_ref.y_min())
+# print("y_max", bc_ref.y_max())
+# while ts.time() < 0.001:
+#     p, u, v = to_np_array(ts.mesh())
+#     print(p)
+#     fig = figure()
+#     ax = fig.gca(projection="3d")
+#     ax.plot_surface(x, y, p, cmap=cm.gist_heat)
+#     ax.contour(x, y, p)
+#     title("Part 1 RK1 Timestep at t={:.6}".format(ts.time()))
+
+#     ts.timestep(0.8)
+
+# show()
