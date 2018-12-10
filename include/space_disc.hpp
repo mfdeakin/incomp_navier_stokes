@@ -14,7 +14,8 @@ class [[nodiscard]] INSAssembly : public _SpaceDisc {
   using SpaceDisc = _SpaceDisc;
 
   static std::unique_ptr<BConds_Base> default_boundaries() noexcept {
-    return std::make_unique<BConds_Part1>(1.0, 1.0, 1.0, 1.0, 0.0, 1.0, 0.0, 1.0);
+    return std::make_unique<BConds_Part1>(1.0, 1.0, 1.0, 1.0, 0.0, 1.0, 0.0,
+                                          1.0);
   }
 
   template <typename MeshT>
@@ -104,58 +105,138 @@ class [[nodiscard]] SecondOrderCentered {
  public:
   // Terms for implicit euler
   template <typename MeshT>
-  [[nodiscard]] constexpr real Dx_p1(const MeshT &mesh, int i, int j)
+  [[nodiscard]] constexpr Jacobian jacobian_x_base(const MeshT &mesh, int i,
+                                                   int j) const noexcept {
+    Jacobian j_x((Jacobian::ZeroTag()));
+    j_x(0, 0) = 0.0;
+    j_x(0, 1) = 0.5 / boundaries_ref().beta();
+    j_x(0, 2) = 0.0;
+
+    j_x(1, 0) = 0.5;
+    j_x(1, 1) = 0.5 * (mesh.u_vel(i + 1, j) + mesh.u_vel(i, j));
+    j_x(1, 2) = 0.0;
+
+    j_x(2, 0) = 0.0;
+    j_x(2, 1) = 0.25 * (mesh.v_vel(i + 1, j) + mesh.v_vel(i, j));
+    j_x(2, 2) = 0.25 * (mesh.u_vel(i + 1, j) + mesh.u_vel(i, j));
+    return j_x;
+  }
+
+  template <typename MeshT>
+  [[nodiscard]] constexpr Jacobian jacobian_x_0(const MeshT &mesh, int i, int j)
+      const noexcept {
+    // This is the Jacobian of F_{i+1/2,j} wrt U_{i,j}
+    Jacobian b_x(jacobian_x_base(mesh, i, j));
+    const real deriv_term = 1.0 / (reynolds * mesh.dx());
+    b_x(1, 1) += deriv_term;
+    b_x(2, 2) += deriv_term;
+    return b_x;
+  }
+
+  template <typename MeshT>
+  [[nodiscard]] constexpr Jacobian jacobian_x_p1(const MeshT &mesh, int i,
+                                                 int j) const noexcept {
+    // This is the Jacobian of F_{i+1/2,j} wrt U_{i+1,j}
+    Jacobian b_x(jacobian_x_base(mesh, i, j));
+    const real deriv_term = 1.0 / (reynolds * mesh.dx());
+    b_x(1, 1) -= deriv_term;
+    b_x(2, 2) -= deriv_term;
+    return b_x;
+  }
+
+  template <typename MeshT>
+  [[nodiscard]] constexpr Jacobian Dx_p1(const MeshT &mesh, int i, int j)
       const noexcept {
     if(i < mesh.x_dim() - 1) {
-      return mesh.u_vel(i + 1, j) / (2.0 * mesh.dx()) -
-             1.0 / (reynolds * prandtl * mesh.dx() * mesh.dx());
+      return jacobian_x_p1(mesh, i, j) * (1.0 / mesh.dx());
     } else {
-      return 0.0;
+      return Jacobian(Jacobian::ZeroTag());
     }
   }
 
   template <typename MeshT>
-  [[nodiscard]] constexpr real Dx_0(const MeshT &mesh, int i, int j)
+  [[nodiscard]] constexpr Jacobian Dx_0(const MeshT &mesh, int i, int j)
       const noexcept {
-    return 2.0 / (reynolds * prandtl * mesh.dx() * mesh.dx());
+    return (jacobian_x_0(mesh, i, j) - jacobian_x_p1(mesh, i - 1, j)) *
+           (1.0 / mesh.dx());
   }
 
   template <typename MeshT>
-  [[nodiscard]] constexpr real Dx_m1(const MeshT &mesh, int i, int j)
+  [[nodiscard]] constexpr Jacobian Dx_m1(const MeshT &mesh, int i, int j)
       const noexcept {
     if(i > 0) {
-      return -mesh.u_vel(i - 1, j) / (2.0 * mesh.dx()) -
-             1.0 / (reynolds * prandtl * mesh.dx() * mesh.dx());
+      return jacobian_x_0(mesh, i - 1, j) * (-1.0 / mesh.dx());
     } else {
-      return 0.0;
+      return Jacobian(Jacobian::ZeroTag());
     }
   }
 
   template <typename MeshT>
-  [[nodiscard]] constexpr real Dy_p1(const MeshT &mesh, int i, int j)
+  [[nodiscard]] constexpr Jacobian jacobian_y_base(const MeshT &mesh, int i,
+                                                   int j) const noexcept {
+    Jacobian j_y((Jacobian::ZeroTag()));
+    j_y(0, 0) = 0.0;
+    j_y(0, 1) = 0.0;
+    j_y(0, 2) = 0.5 / boundaries_ref().beta();
+
+    j_y(1, 0) = 0.0;
+    j_y(1, 1) = 0.25 * (mesh.v_vel(i, j + 1) + mesh.v_vel(i, j)) +
+                1.0 / (reynolds * mesh.dy());
+    j_y(1, 2) = 0.25 * (mesh.u_vel(i + 1, j) + mesh.u_vel(i, j));
+
+    j_y(2, 0) = 0.5;
+    j_y(2, 1) = 0.0;
+    j_y(2, 2) = 0.5 * (mesh.v_vel(i, j + 1) + mesh.v_vel(i, j)) +
+                1.0 / (reynolds * mesh.dy());
+    return j_y;
+  }
+
+  template <typename MeshT>
+  [[nodiscard]] constexpr Jacobian jacobian_y_0(const MeshT &mesh, int i, int j)
+      const noexcept {
+    // This is the Jacobian of F_{i+1/2,j} wrt U_{i,j}
+    Jacobian j_y(jacobian_x_base(mesh, i, j));
+    const real deriv_term = 1.0 / (reynolds * mesh.dy());
+    j_y(1, 1) += deriv_term;
+    j_y(2, 2) += deriv_term;
+    return j_y;
+  }
+
+  template <typename MeshT>
+  [[nodiscard]] constexpr Jacobian jacobian_y_p1(const MeshT &mesh, int i,
+                                                 int j) const noexcept {
+    // This is the Jacobian of F_{i+1/2,j} wrt U_{i+1,j}
+    Jacobian j_y(jacobian_x_base(mesh, i, j));
+    const real deriv_term = 1.0 / (reynolds * mesh.dy());
+    j_y(1, 1) -= deriv_term;
+    j_y(2, 2) -= deriv_term;
+    return j_y;
+  }
+
+  template <typename MeshT>
+  [[nodiscard]] constexpr Jacobian Dy_p1(const MeshT &mesh, int i, int j)
       const noexcept {
     if(j < mesh.y_dim() - 1) {
-      return mesh.v_vel(i, j + 1) / (2.0 * mesh.dy()) -
-             1.0 / (reynolds * prandtl * mesh.dy() * mesh.dy());
+      return jacobian_y_p1(mesh, i, j) * (1.0 / mesh.dy());
     } else {
-      return 0.0;
+      return Jacobian(Jacobian::ZeroTag());
     }
   }
 
   template <typename MeshT>
-  [[nodiscard]] constexpr real Dy_0(const MeshT &mesh, int i, int j)
+  [[nodiscard]] constexpr Jacobian Dy_0(const MeshT &mesh, int i, int j)
       const noexcept {
-    return 2.0 / (reynolds * prandtl * mesh.dy() * mesh.dy());
+    return (jacobian_y_0(mesh, i, j) - jacobian_y_p1(mesh, i, j - 1)) *
+           (1.0 / mesh.dy());
   }
 
   template <typename MeshT>
-  [[nodiscard]] constexpr real Dy_m1(const MeshT &mesh, int i, int j)
+  [[nodiscard]] constexpr Jacobian Dy_m1(const MeshT &mesh, int i, int j)
       const noexcept {
     if(j > 0) {
-      return -mesh.v_vel(i, j - 1) / (2.0 * mesh.dy()) -
-             1.0 / (reynolds * prandtl * mesh.dy() * mesh.dy());
+      return jacobian_y_0(mesh, i, j - 1) * (-1.0 / mesh.dy());
     } else {
-      return 0.0;
+      return Jacobian(Jacobian::ZeroTag());
     }
   }
 
@@ -172,14 +253,15 @@ class [[nodiscard]] SecondOrderCentered {
       //         boundaries_ref().pressure_boundary_x_max(y, time) +
       //         boundaries_ref().pressure_boundary_x_max(
       //             (mesh.y_max(j) + y) / 2.0, time) +
-      //         boundaries_ref().pressure_boundary_x_max(mesh.y_max(j), time)) /
+      //         boundaries_ref().pressure_boundary_x_max(mesh.y_max(j), time))
+      //         /
       //        5.0;
-			const real x = boundaries_ref().x_max();
-			return boundaries_ref().P_0() * std::cos(pi * x) * std::cos(pi * y);
+      const real x = boundaries_ref().x_max();
+      return boundaries_ref().P_0() * std::cos(pi * x) * std::cos(pi * y);
     } else if(i == -1) {
       const real y = mesh.y_median(j);
-			const real x = boundaries_ref().x_min();
-			return boundaries_ref().P_0() * std::cos(pi * x) * std::cos(pi * y);
+      const real x = boundaries_ref().x_min();
+      return boundaries_ref().P_0() * std::cos(pi * x) * std::cos(pi * y);
       return boundaries_ref().pressure_boundary_x_min(y, time);
     } else {
       return (mesh.press(i, j) + mesh.press(i + 1, j)) / 2.0;

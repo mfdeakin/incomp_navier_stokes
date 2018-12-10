@@ -2,8 +2,10 @@
 #ifndef _CTARRAY_HPP_
 #define _CTARRAY_HPP_
 
-#include <assert.h>
+#ifndef _NDARRAY_HPP_
+#include <cassert>
 #include <type_traits>
+#endif
 
 template <typename FieldT, FieldT leading, FieldT... others>
 struct CT_Array {
@@ -26,7 +28,7 @@ struct CT_Array {
   }
 
   static constexpr FieldT trailing_product(const int idx) {
-    assert(idx >= 0);
+		assert(idx >= 0);
     assert(idx < len());
     return (idx == 0 ? product()
                      : Next::trailing_product(idx - 1));

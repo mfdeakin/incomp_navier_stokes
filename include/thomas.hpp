@@ -22,26 +22,32 @@
  *  lhs: Garbled.
  *  rhs: The solution x.
  */
-template <typename Mtx>
-constexpr void solve_thomas(Mtx &lhs,
-                            ND_Array<real, Mtx::extent(0)> &rhs) noexcept {
-  constexpr int ctrl_vols = Mtx::extent(0);
-  /* This next line actually has no effect, but it -does- make clear that
-     the values in those locations have no impact. */
-  lhs(0, 0) = lhs(ctrl_vols - 1, 2) = std::numeric_limits<real>::quiet_NaN();
+template <int ctrl_vols>
+constexpr void solve_thomas(ND_Array<Jacobian, ctrl_vols, 3> &lhs,
+                            ND_Array<triple, ctrl_vols> &rhs) noexcept {
   /* Forward elimination */
   for(int i = 0; i < ctrl_vols - 1; i++) {
-    lhs(i, 2) /= lhs(i, 1);
-    rhs(i) /= lhs(i, 1);
-    lhs(i + 1, 1) -= lhs(i, 2) * lhs(i + 1, 0);
+    // Since we're dealing with non-comutative objects (matrices) in our matrix,
+    // we need to be careful to always multiply on the left, since that's within
+    // our powers, rather than the right
+    // Using the inverse probably isn't the fastest way of doing this,
+    // but it's easy and pretty, and for a 3x3 matrix, not too expensive
+    const Jacobian inv = lhs(i, 1).inverse();
+
+    rhs(i) = inv * rhs(i);
+    // At this point, treat the following as true
+    // lhs(i, 0) = Jacobian(Jacobian::ZeroTag());
+    // lhs(i, 1) = Jacobian(Jacobian::IdentityTag());
+    lhs(i, 2) = inv * lhs(i, 2);
+    lhs(i + 1, 1) -= lhs(i + 1, 0) * lhs(i, 2);
     rhs(i + 1) -= lhs(i + 1, 0) * rhs(i);
   }
   /* Last line of elimination */
-  rhs(ctrl_vols - 1) /= lhs(ctrl_vols - 1, 1);
+  rhs(ctrl_vols - 1) = lhs(ctrl_vols - 1, 1).inverse() * rhs(ctrl_vols - 1);
 
   /* Back-substitution */
   for(int i = ctrl_vols - 2; i >= 0; i--) {
-    rhs(i) -= rhs(i + 1) * lhs(i, 2);
+    rhs(i) -= lhs(i, 2) * rhs(i + 1);
   }
 }
 
