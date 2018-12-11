@@ -154,10 +154,10 @@ class [[nodiscard]] Mesh {
         _u_vel(),
         _v_vel() {}
 
-  constexpr Mesh(const BConds_Base *bconds)
-      : Mesh(bconds->x_min(), bconds->x_max(), bconds->y_min(),
-             bconds->y_max()) {
-    bconds->init_mesh(*this);
+  template <typename BConds>
+  constexpr Mesh(const BConds &bconds)
+      : Mesh(bconds.x_min(), bconds.x_max(), bconds.y_min(), bconds.y_max()) {
+    bconds.init_mesh(*this);
   }
 
   constexpr Mesh(const Mesh<ctrl_vols_x, ctrl_vols_y> &src) noexcept

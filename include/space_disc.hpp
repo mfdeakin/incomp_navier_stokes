@@ -12,11 +12,7 @@ template <typename _SpaceDisc>
 class [[nodiscard]] INSAssembly : public _SpaceDisc {
  public:
   using SpaceDisc = _SpaceDisc;
-
-  static std::unique_ptr<BConds_Base> default_boundaries() noexcept {
-    return std::make_unique<BConds_Part1>(1.0, 1.0, 1.0, 1.0, 0.0, 1.0, 0.0,
-                                          1.0);
-  }
+  using BConds    = typename SpaceDisc::BConds;
 
   template <typename MeshT>
   [[nodiscard]] triple flux_integral(const MeshT &mesh, int i, int j,
@@ -29,14 +25,16 @@ class [[nodiscard]] INSAssembly : public _SpaceDisc {
     const real fp_u_x_deriv = (u_right - u_left) / mesh.dx();
     const real gp_v_y_deriv = (v_above - v_below) / mesh.dy();
     const real p_term =
-        (fp_u_x_deriv + gp_v_y_deriv) / this->boundaries_ref().beta();
+        (fp_u_x_deriv + gp_v_y_deriv) / this->boundaries().beta();
 
-    const auto diag_term = [](const real vel2, const real p,
+    const real reynolds = this->boundaries().reynolds();
+
+    const auto diag_term = [=](const real vel2, const real p,
                               const real vel_deriv) {
       return vel2 + p - vel_deriv / reynolds;
     };
 
-    const auto cross_term = [](const real v1_v2, const real dv1_dx2) {
+    const auto cross_term = [=](const real v1_v2, const real dv1_dx2) {
       return v1_v2 - dv1_dx2 / reynolds;
     };
 
@@ -97,23 +95,21 @@ class [[nodiscard]] INSAssembly : public _SpaceDisc {
     }
   }
 
-  constexpr INSAssembly(const BConds_Part1 &boundaries) noexcept
-      : INSAssembly(std::move(std::make_unique<BConds_Part1>(boundaries))) {}
-
-  constexpr INSAssembly(std::unique_ptr<BConds_Base> &&boundaries =
-                            default_boundaries()) noexcept
-      : SpaceDisc(std::move(boundaries)) {}
+  INSAssembly(const BConds &boundaries) : SpaceDisc(boundaries) {}
 };
 
+template <typename _BConds>
 class [[nodiscard]] SecondOrderCentered {
  public:
+  using BConds = _BConds;
+
   // Terms for implicit euler
   template <typename MeshT>
   [[nodiscard]] constexpr Jacobian jacobian_x_base(const MeshT &mesh, int i,
                                                    int j) const noexcept {
     Jacobian j_x((Jacobian::ZeroTag()));
     j_x(0, 0) = 0.0;
-    j_x(0, 1) = 0.5 / boundaries_ref().beta();
+    j_x(0, 1) = 0.5 / boundaries().beta();
     j_x(0, 2) = 0.0;
 
     j_x(1, 0) = 0.5;
@@ -131,7 +127,7 @@ class [[nodiscard]] SecondOrderCentered {
       const noexcept {
     // This is the Jacobian of F_{i+1/2,j} wrt U_{i,j}
     Jacobian b_x(jacobian_x_base(mesh, i, j));
-    const real deriv_term = 1.0 / (reynolds * mesh.dx());
+    const real deriv_term = 1.0 / (boundaries().reynolds() * mesh.dx());
     b_x(1, 1) += deriv_term;
     b_x(2, 2) += deriv_term;
     return b_x;
@@ -142,7 +138,7 @@ class [[nodiscard]] SecondOrderCentered {
                                                  int j) const noexcept {
     // This is the Jacobian of F_{i+1/2,j} wrt U_{i+1,j}
     Jacobian b_x(jacobian_x_base(mesh, i, j));
-    const real deriv_term = 1.0 / (reynolds * mesh.dx());
+    const real deriv_term = 1.0 / (boundaries().reynolds() * mesh.dx());
     b_x(1, 1) -= deriv_term;
     b_x(2, 2) -= deriv_term;
     return b_x;
@@ -181,17 +177,17 @@ class [[nodiscard]] SecondOrderCentered {
     Jacobian j_y((Jacobian::ZeroTag()));
     j_y(0, 0) = 0.0;
     j_y(0, 1) = 0.0;
-    j_y(0, 2) = 0.5 / boundaries_ref().beta();
+    j_y(0, 2) = 0.5 / boundaries().beta();
 
     j_y(1, 0) = 0.0;
     j_y(1, 1) = 0.25 * (mesh.v_vel(i, j + 1) + mesh.v_vel(i, j)) +
-                1.0 / (reynolds * mesh.dy());
+                1.0 / (boundaries().reynolds() * mesh.dy());
     j_y(1, 2) = 0.25 * (mesh.u_vel(i + 1, j) + mesh.u_vel(i, j));
 
     j_y(2, 0) = 0.5;
     j_y(2, 1) = 0.0;
     j_y(2, 2) = 0.5 * (mesh.v_vel(i, j + 1) + mesh.v_vel(i, j)) +
-                1.0 / (reynolds * mesh.dy());
+                1.0 / (boundaries().reynolds() * mesh.dy());
     return j_y;
   }
 
@@ -200,7 +196,7 @@ class [[nodiscard]] SecondOrderCentered {
       const noexcept {
     // This is the Jacobian of F_{i+1/2,j} wrt U_{i,j}
     Jacobian j_y(jacobian_x_base(mesh, i, j));
-    const real deriv_term = 1.0 / (reynolds * mesh.dy());
+    const real deriv_term = 1.0 / (boundaries().reynolds() * mesh.dy());
     j_y(1, 1) += deriv_term;
     j_y(2, 2) += deriv_term;
     return j_y;
@@ -211,7 +207,7 @@ class [[nodiscard]] SecondOrderCentered {
                                                  int j) const noexcept {
     // This is the Jacobian of F_{i+1/2,j} wrt U_{i+1,j}
     Jacobian j_y(jacobian_x_base(mesh, i, j));
-    const real deriv_term = 1.0 / (reynolds * mesh.dy());
+    const real deriv_term = 1.0 / (boundaries().reynolds() * mesh.dy());
     j_y(1, 1) -= deriv_term;
     j_y(2, 2) -= deriv_term;
     return j_y;
@@ -244,32 +240,40 @@ class [[nodiscard]] SecondOrderCentered {
     }
   }
 
+  template <typename MeshT, typename Get>
+  [[nodiscard]] constexpr real get_value_x_flux(
+      const MeshT &mesh, const Get &get_value, int i, int j) const noexcept {
+    return (get_value(mesh, i, j) + get_value(mesh, i + 1, j)) / 2.0;
+  }
+
+  template <typename MeshT, typename Get>
+  [[nodiscard]] constexpr real get_value_y_flux(
+      const MeshT &mesh, const Get &get_value, int i, int j) const noexcept {
+    return (get_value(mesh, i, j) + get_value(mesh, i, j + 1)) / 2.0;
+  }
+
+  template <typename MeshT, typename Get>
+  [[nodiscard]] constexpr real get_deriv_x_flux(
+      const MeshT &mesh, const Get &get_value, int i, int j) const noexcept {
+    return (get_value(mesh, i + 1, j) - get_value(mesh, i, j)) / mesh.dx();
+  }
+
+  template <typename MeshT, typename Get>
+  [[nodiscard]] constexpr real get_deriv_y_flux(
+      const MeshT &mesh, const Get &get_value, int i, int j) const noexcept {
+    return (get_value(mesh, i, j + 1) - get_value(mesh, i, j)) / mesh.dy();
+  }
+
   // Centered FV approximation to P_{i+1/2, j}
   template <typename MeshT>
   [[nodiscard]] constexpr real press_x_flux(const MeshT &mesh, const int i,
                                             const int j, const real time)
       const noexcept {
-    if(i == mesh.x_dim() - 1) {
-      const real y = mesh.y_median(j);
-      // return (boundaries_ref().pressure_boundary_x_max(mesh.y_min(j), time) +
-      //         boundaries_ref().pressure_boundary_x_max(
-      //             (mesh.y_min(j) + y) / 2.0, time) +
-      //         boundaries_ref().pressure_boundary_x_max(y, time) +
-      //         boundaries_ref().pressure_boundary_x_max(
-      //             (mesh.y_max(j) + y) / 2.0, time) +
-      //         boundaries_ref().pressure_boundary_x_max(mesh.y_max(j), time))
-      //         /
-      //        5.0;
-      const real x = boundaries_ref().x_max();
-      return boundaries_ref().P_0() * std::cos(pi * x) * std::cos(pi * y);
-    } else if(i == -1) {
-      const real y = mesh.y_median(j);
-      const real x = boundaries_ref().x_min();
-      return boundaries_ref().P_0() * std::cos(pi * x) * std::cos(pi * y);
-      return boundaries_ref().pressure_boundary_x_min(y, time);
-    } else {
-      return (mesh.press(i, j) + mesh.press(i + 1, j)) / 2.0;
-    }
+    return get_value_x_flux(mesh,
+                            [=](const MeshT &mesh, const int i, const int j) {
+                              return boundaries().pressure_at(mesh, time, i, j);
+                            },
+                            i, j);
   }
 
   // Centered FV approximation to P_{i, j+1/2}
@@ -277,15 +281,11 @@ class [[nodiscard]] SecondOrderCentered {
   [[nodiscard]] constexpr real press_y_flux(const MeshT &mesh, const int i,
                                             const int j, const real time)
       const noexcept {
-    if(j == mesh.y_dim() - 1) {
-      const real x = mesh.x_median(i);
-      return boundaries_ref().pressure_boundary_y_max(x, time);
-    } else if(j == -1) {
-      const real x = mesh.x_median(i);
-      return boundaries_ref().pressure_boundary_y_min(x, time);
-    } else {
-      return (mesh.press(i, j) + mesh.press(i, j + 1)) / 2.0;
-    }
+    return get_value_y_flux(mesh,
+                            [=](const MeshT &mesh, const int i, const int j) {
+                              return boundaries().pressure_at(mesh, time, i, j);
+                            },
+                            i, j);
   }
 
   // Centered FV approximation to u_{i+1/2, j}
@@ -293,15 +293,11 @@ class [[nodiscard]] SecondOrderCentered {
   [[nodiscard]] constexpr real u_x_flux(const MeshT &mesh, const int i,
                                         const int j, const real time)
       const noexcept {
-    if(i == mesh.x_dim() - 1) {
-      const real y = mesh.y_median(j);
-      return boundaries_ref().u_vel_boundary_x_max(y, time);
-    } else if(i == -1) {
-      const real y = mesh.y_median(j);
-      return boundaries_ref().u_vel_boundary_x_min(y, time);
-    } else {
-      return (mesh.u_vel(i, j) + mesh.u_vel(i + 1, j)) / 2.0;
-    }
+    return get_value_x_flux(mesh,
+                            [=](const MeshT &mesh, const int i, const int j) {
+                              return boundaries().u_vel_at(mesh, time, i, j);
+                            },
+                            i, j);
   }
 
   // Centered FV approximation to u_{i, j+1/2}
@@ -309,15 +305,11 @@ class [[nodiscard]] SecondOrderCentered {
   [[nodiscard]] constexpr real u_y_flux(const MeshT &mesh, const int i,
                                         const int j, const real time)
       const noexcept {
-    if(j == mesh.y_dim() - 1) {
-      const real x = mesh.x_median(i);
-      return boundaries_ref().u_vel_boundary_y_max(x, time);
-    } else if(j == -1) {
-      const real x = mesh.x_median(i);
-      return boundaries_ref().u_vel_boundary_y_min(x, time);
-    } else {
-      return (mesh.u_vel(i, j) + mesh.u_vel(i, j + 1)) / 2.0;
-    }
+    return get_value_y_flux(mesh,
+                            [=](const MeshT &mesh, const int i, const int j) {
+                              return boundaries().u_vel_at(mesh, time, i, j);
+                            },
+                            i, j);
   }
 
   // Centered FV approximation to v_{i+1/2, j}
@@ -325,15 +317,11 @@ class [[nodiscard]] SecondOrderCentered {
   [[nodiscard]] constexpr real v_x_flux(const MeshT &mesh, const int i,
                                         const int j, const real time)
       const noexcept {
-    if(i == mesh.x_dim() - 1) {
-      const real y = mesh.y_median(j);
-      return boundaries_ref().v_vel_boundary_x_max(y, time);
-    } else if(i == -1) {
-      const real y = mesh.y_median(j);
-      return boundaries_ref().v_vel_boundary_x_min(y, time);
-    } else {
-      return (mesh.v_vel(i, j) + mesh.v_vel(i + 1, j)) / 2.0;
-    }
+    return get_value_x_flux(mesh,
+                            [=](const MeshT &mesh, const int i, const int j) {
+                              return boundaries().v_vel_at(mesh, time, i, j);
+                            },
+                            i, j);
   }
 
   // Centered FV approximation to v_{i, j+1/2}
@@ -341,15 +329,11 @@ class [[nodiscard]] SecondOrderCentered {
   [[nodiscard]] constexpr real v_y_flux(const MeshT &mesh, const int i,
                                         const int j, const real time)
       const noexcept {
-    if(j == mesh.y_dim() - 1) {
-      const real x = mesh.x_median(i);
-      return boundaries_ref().v_vel_boundary_y_max(x, time);
-    } else if(j == -1) {
-      const real x = mesh.x_median(i);
-      return boundaries_ref().v_vel_boundary_y_min(x, time);
-    } else {
-      return (mesh.v_vel(i, j) + mesh.v_vel(i, j + 1)) / 2.0;
-    }
+    return get_value_y_flux(mesh,
+                            [=](const MeshT &mesh, const int i, const int j) {
+                              return boundaries().v_vel_at(mesh, time, i, j);
+                            },
+                            i, j);
   }
 
   // Centered FV approximation to du_dx_{i+1/2, j}
@@ -357,19 +341,11 @@ class [[nodiscard]] SecondOrderCentered {
   [[nodiscard]] constexpr real du_x_flux(const MeshT &mesh, const int i,
                                          const int j, const real time)
       const noexcept {
-    if(i == mesh.x_dim() - 1) {
-      const real y = mesh.y_median(j);
-      return (boundaries_ref().u_vel_boundary_x_max(y, time) -
-              mesh.u_vel(i, j)) /
-             (mesh.dx() / 2.0);
-    } else if(i == -1) {
-      const real y = mesh.y_median(j);
-      return (mesh.u_vel(i + 1, j) -
-              boundaries_ref().u_vel_boundary_x_min(y, time)) /
-             (mesh.dx() / 2.0);
-    } else {
-      return (mesh.u_vel(i + 1, j) - mesh.u_vel(i, j)) / mesh.dx();
-    }
+    return get_deriv_x_flux(mesh,
+                            [=](const MeshT &mesh, const int i, const int j) {
+                              return boundaries().u_vel_at(mesh, time, i, j);
+                            },
+                            i, j);
   }
 
   // Centered FV approximation to du_dy_{i, j+1/2}
@@ -377,21 +353,11 @@ class [[nodiscard]] SecondOrderCentered {
   [[nodiscard]] constexpr real du_y_flux(const MeshT &mesh, const int i,
                                          const int j, const real time)
       const noexcept {
-    if(j == mesh.y_dim() - 1) {
-      const real x = mesh.x_median(i);
-      const real u_above =
-          2.0 * boundaries_ref().u_vel_boundary_y_max(x, time) -
-          mesh.u_vel(i, j);
-      return (u_above - mesh.u_vel(i, j)) / mesh.dy();
-    } else if(j == -1) {
-      const real x = mesh.x_median(i);
-      const real u_below =
-          2.0 * boundaries_ref().u_vel_boundary_y_min(x, time) -
-          mesh.u_vel(i, j + 1);
-      return (mesh.u_vel(i, j + 1) - u_below) / mesh.dy();
-    } else {
-      return (mesh.u_vel(i, j + 1) - mesh.u_vel(i, j)) / mesh.dy();
-    }
+    return get_deriv_y_flux(mesh,
+                            [=](const MeshT &mesh, const int i, const int j) {
+                              return boundaries().u_vel_at(mesh, time, i, j);
+                            },
+                            i, j);
   }
 
   // Centered FV approximation to dv_dx_{i+1/2, j}
@@ -399,20 +365,11 @@ class [[nodiscard]] SecondOrderCentered {
   [[nodiscard]] constexpr real dv_x_flux(const MeshT &mesh, const int i,
                                          const int j, const real time)
       const noexcept {
-    if(i == mesh.x_dim() - 1) {
-      const real y = mesh.y_median(j);
-      const real v_right =
-          2.0 * boundaries_ref().v_vel_boundary_x_max(y, time) -
-          mesh.v_vel(i, j);
-      return (v_right - mesh.v_vel(i, j)) / mesh.dx();
-    } else if(i == -1) {
-      const real y      = mesh.y_median(j);
-      const real v_left = 2.0 * boundaries_ref().v_vel_boundary_x_min(y, time) -
-                          mesh.v_vel(i + 1, j);
-      return (mesh.v_vel(i + 1, j) - v_left) / mesh.dx();
-    } else {
-      return (mesh.v_vel(i + 1, j) - mesh.v_vel(i, j)) / mesh.dx();
-    }
+    return get_deriv_x_flux(mesh,
+                            [=](const MeshT &mesh, const int i, const int j) {
+                              return boundaries().v_vel_at(mesh, time, i, j);
+                            },
+                            i, j);
   }
 
   // Centered FV approximation to dv_dy_{i, j+1/2}
@@ -420,33 +377,20 @@ class [[nodiscard]] SecondOrderCentered {
   [[nodiscard]] constexpr real dv_y_flux(const MeshT &mesh, const int i,
                                          const int j, const real time)
       const noexcept {
-    if(j == mesh.y_dim() - 1) {
-      const real x = mesh.x_median(i);
-      const real v_above =
-          2.0 * boundaries_ref().v_vel_boundary_y_max(x, time) -
-          mesh.v_vel(i, j);
-      return (v_above - mesh.v_vel(i, j)) / mesh.dy();
-    } else if(j == -1) {
-      const real x = mesh.x_median(i);
-      const real v_below =
-          2.0 * boundaries_ref().v_vel_boundary_y_min(x, time) -
-          mesh.v_vel(i, j + 1);
-      return (mesh.v_vel(i, j + 1) - v_below) / mesh.dy();
-    } else {
-      return (mesh.v_vel(i, j + 1) - mesh.v_vel(i, j)) / mesh.dy();
-    }
+    return get_deriv_y_flux(mesh,
+                            [=](const MeshT &mesh, const int i, const int j) {
+                              return boundaries().v_vel_at(mesh, time, i, j);
+                            },
+                            i, j);
   }
 
-  const BConds_Base *boundaries() const noexcept { return _boundaries.get(); }
-  const BConds_Base &boundaries_ref() const noexcept { return *_boundaries; }
-
-  SecondOrderCentered(std::unique_ptr<BConds_Base> && boundaries) noexcept
-      : _boundaries(std::move(boundaries)) {}
-
   SecondOrderCentered() = delete;
+  SecondOrderCentered(const BConds &bounds) : _boundaries(bounds) {}
+
+  const BConds &boundaries() const noexcept { return _boundaries; }
 
  protected:
-  std::unique_ptr<BConds_Base> _boundaries;
+  BConds _boundaries;
 };
 
 #endif  // _SPACE_DISC_HPP_

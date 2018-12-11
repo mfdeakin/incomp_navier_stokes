@@ -75,10 +75,11 @@ int main(int argc, char **argv) {
   py::scoped_interpreter _{};
   py::object show = py::module::import("matplotlib.pyplot").attr("show");
 
-  using RK = RK4_Solver<Mesh<160, 160>, SecondOrderCentered>;
-  BConds_Part1 bc(3.0, 0.1, 1.0, 2.0, 0.0, 1.0, 0.0, 1.0);
+  using RK = RK4_Solver<Mesh<160, 160>, SecondOrderCentered<BConds_Part1> >;
+  BConds_Part1 bc(3.0, 0.1, 1.0, 2.0, 1.0, 0.0, 1.0, 0.0, 1.0);
   RK rk_solver(bc);
-  using IE = ImplicitEuler_Solver<Mesh<160, 160>, SecondOrderCentered>;
+  using IE =
+      ImplicitEuler_Solver<Mesh<160, 160>, SecondOrderCentered<BConds_Part1> >;
   IE ie_solver(bc);
 
   std::stringstream ss;
@@ -95,7 +96,9 @@ int main(int argc, char **argv) {
       plot_mesh_surface(rk_solver.mesh(), ss.str());
       prev_time = cur_time;
 
-      ie_solver.timestep(0.1);
+			printf("Starting implicit euler timestep\n");
+      ie_solver.timestep(rk_solver.time() - ie_solver.time());
+			printf("Finished implicit euler timestep\n");
       ss.str("");
       ss << "IE Time: " << ie_solver.time();
       plot_mesh_surface(ie_solver.mesh(), ss.str());

@@ -18,11 +18,7 @@ class Base_Solver {
  public:
   using MeshT         = _Mesh;
   using SpaceAssembly = INSAssembly<_SpaceDisc>;
-
-  static std::unique_ptr<BConds_Base> default_boundaries() noexcept {
-    return std::make_unique<BConds_Part1>(1.0, 1.0, 1.0, 1.0, 0.0, 1.0, 0.0,
-                                          1.0);
-  }
+  using BConds        = typename SpaceAssembly::BConds;
 
   [[nodiscard]] constexpr real time() const noexcept { return _time; }
 
@@ -32,12 +28,17 @@ class Base_Solver {
     return _space_assembly;
   }
 
+  [[nodiscard]] constexpr const BConds &boundaries() const noexcept {
+    return _space_assembly.boundaries();
+  }
+
  protected:
-  Base_Solver(std::unique_ptr<BConds_Base> &&boundaries)
-      : _cur_mesh(std::make_unique<MeshT>(boundaries.get())),
-        _space_assembly(std::move(boundaries)),
+  template <typename BConds>
+  Base_Solver(BConds &boundaries)
+      : _cur_mesh(std::make_unique<MeshT>(boundaries)),
+        _space_assembly(boundaries),
         _time(0.0) {
-    _space_assembly.boundaries()->init_mesh(*_cur_mesh);
+    boundaries.init_mesh(*_cur_mesh);
   }
 
   std::unique_ptr<MeshT> _cur_mesh;
@@ -52,13 +53,9 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceDisc> {
   using SpaceAssembly = INSAssembly<_SpaceDisc>;
   using Base          = Base_Solver<MeshT, _SpaceDisc>;
 
-  ImplicitEuler_Solver(
-      std::unique_ptr<BConds_Base> &&boundaries = Base::default_boundaries())
-      : Base(std::move(boundaries)) {}
-
-  constexpr ImplicitEuler_Solver(const BConds_Part1 &boundaries) noexcept
-      : ImplicitEuler_Solver(
-            std::move(std::make_unique<BConds_Part1>(boundaries))) {}
+  template <typename BConds>
+  constexpr ImplicitEuler_Solver(const BConds &boundaries) noexcept
+      : Base(boundaries) {}
 
   void timestep(const real dt) {
     // First we need to construct our vector to use with the Thomas algorithm
@@ -113,8 +110,6 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceDisc> {
     }
     for(int i = 0; i < MeshT::x_dim(); i++) {
       for(int j = 0; j < MeshT::y_dim(); j++) {
-        const auto [p_f, u_f, v_f] =
-            space_assembly.flux_integral(mesh, i, j, this->time());
         for(int k = 0; k < triple::extent(0); k++) {
           assert(!std::isnan(sol_dx_mesh(i + 1, j)(k)));
         }
@@ -203,14 +198,9 @@ class RK1_Solver : public Base_Solver<_Mesh, _SpaceDisc> {
   using SpaceAssembly = INSAssembly<_SpaceDisc>;
   using Base          = Base_Solver<MeshT, _SpaceDisc>;
 
-  RK1_Solver(
-      std::unique_ptr<BConds_Base> &&boundaries = Base::default_boundaries())
-      : Base(std::move(boundaries)),
-        _partial_mesh(
-            std::make_unique<MeshT>(this->space_assembly().boundaries())) {}
-
-  constexpr RK1_Solver(const BConds_Part1 &boundaries) noexcept
-      : RK1_Solver(std::move(std::make_unique<BConds_Part1>(boundaries))) {}
+  template <typename BConds>
+  constexpr RK1_Solver(const BConds &boundaries) noexcept
+      : Base(boundaries), _partial_mesh(std::make_unique<MeshT>(boundaries)) {}
 
   void timestep(const real sigma_ratio) {
     auto &mesh = *(this->_cur_mesh);
@@ -220,8 +210,8 @@ class RK1_Solver : public Base_Solver<_Mesh, _SpaceDisc> {
     // Then |\sigma| \leq 1 + (4 / (Re * Pr)(\Delta t / \Delta x^2) = 1
     // So our maximum timestep is \Delta x^2 * Re * Pr / 4
 
-    const real dt =
-        sigma_ratio * mesh.dx() * mesh.dx() * reynolds * prandtl / 4.0;
+    const real dt = sigma_ratio * mesh.dx() * mesh.dx() *
+                    this->boundaries().reynolds() * prandtl / 4.0;
 
     this->_space_assembly.flux_assembly(*(this->_cur_mesh), *(this->_cur_mesh),
                                         *_partial_mesh, this->time(), dt);
@@ -243,27 +233,22 @@ class RK4_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
   using SpaceAssembly = _SpaceAssembly;
   using Base          = Base_Solver<MeshT, SpaceAssembly>;
 
-  RK4_Solver(
-      std::unique_ptr<BConds_Base> &&boundaries = Base::default_boundaries())
-      : Base_Solver<_Mesh, _SpaceAssembly>(std::move(boundaries)),
-        _partial_mesh_1(
-            std::make_unique<MeshT>(this->space_assembly().boundaries())),
-        _partial_mesh_2(
-            std::make_unique<MeshT>(this->space_assembly().boundaries())) {}
-
-  constexpr RK4_Solver(const BConds_Part1 &boundaries) noexcept
-      : RK4_Solver(std::move(std::make_unique<BConds_Part1>(boundaries))) {}
+  template <typename BConds>
+  constexpr RK4_Solver(const BConds &boundaries) noexcept
+      : Base(boundaries),
+        _partial_mesh_1(std::make_unique<MeshT>(boundaries)),
+        _partial_mesh_2(std::make_unique<MeshT>(boundaries)) {}
 
   void timestep(const real sigma_ratio) {
-    auto &mesh = *(this->_cur_mesh);
+    MeshT &mesh = this->mesh();
     // Approximate the amplification factor as
     // 4^3 (\Delta t / \Delta x^2)^4 / (6 * Re * Pr) = sigma_mag
     // where sigma_mag = sigma_ratio^4
     // We can make this approximation because for small \Delta x,
     // the other terms of the amplification factor will be small in comparison
     // Then solve for \Delta t
-    const real constants =
-        std::sqrt(std::sqrt(6.0 * reynolds * prandtl / 64.0));
+    const real constants = std::sqrt(
+        std::sqrt(6.0 * this->boundaries().reynolds() * prandtl / 64.0));
     const real ds = std::max(mesh.dx(), mesh.dy());
     const real dt = sigma_ratio * constants * (ds * ds);
 
