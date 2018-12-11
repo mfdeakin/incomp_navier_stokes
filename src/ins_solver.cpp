@@ -67,7 +67,7 @@ py::class_<Mesh<ctrl_x, ctrl_y>> def_mesh(py::module &module) {
           py::return_value_policy::reference)
       .def("timestep", (void (RK1::*)(real)) & RK1::timestep)
       .def("time", (real(RK1::*)()) & RK1::time)
-      .def("mesh", (MeshT(RK1::*)()) & RK1::mesh)
+      .def("mesh", (MeshT &(RK1::*)()) & RK1::mesh)
       .def("space_assembly", (SpaceAssembly & (RK1::*)()) & RK1::space_assembly,
            py::return_value_policy::reference_internal);
   // The reference_internal rvp indicates the reference's lifetime is tied to
