@@ -25,12 +25,10 @@ def plot_errs(MeshT, plot=True):
     sd.flux_assembly(m_zero, m_init, m_fi, 0.0, 1.0)
     bc.flux_soln(m_fi_soln)
 
-    rm_boundaries = lambda a: a[1 : -1, 1 : -1]
+    x, y = x_y_coords(m_fi)
 
-    x, y = [rm_boundaries(a) for a in x_y_coords(m_fi)]
-
-    p_fi, u_fi, v_fi = [rm_boundaries(a) for a in to_np_array(m_fi)]
-    p_fi_soln, u_fi_soln, v_fi_soln = [rm_boundaries(a) for a in to_np_array(m_fi_soln)]
+    p_fi, u_fi, v_fi = to_np_array(m_fi)
+    p_fi_soln, u_fi_soln, v_fi_soln = to_np_array(m_fi_soln)
     p_fi_err, u_fi_err, v_fi_err = (p_fi - p_fi_soln, u_fi - u_fi_soln, v_fi - v_fi_soln)
 
     if plot:
@@ -115,7 +113,7 @@ print("40 Convergence Rate Pressure: {} u: {} v: {}".format(log2(p_err_020 / p_e
                                                             log2(u_err_020 / u_err_040),
                                                             log2(v_err_020 / v_err_040)))
 print("80x80")
-p_err_080, u_err_080, v_err_080 = plot_errs(Mesh_80x80, False)
+p_err_080, u_err_080, v_err_080 = plot_errs(Mesh_80x80, True)
 print("80 Convergence Rate Pressure: {} u: {} v: {}".format(log2(p_err_040 / p_err_080),
                                                             log2(u_err_040 / u_err_080),
                                                             log2(v_err_040 / v_err_080)))
@@ -147,24 +145,25 @@ print("Computed", p)
 print("Expected", p_e)
 print("Error", p - p_e)
 assembly = ts.space_assembly()
-# bc_ref = assembly.boundaries()
-# print("P_0", bc_ref.P_0())
-# print("u_0", bc_ref.u_0())
-# print("v_0", bc_ref.v_0())
-# print("Beta", bc_ref.beta())
-# print("x_min", bc_ref.x_min())
-# print("x_max", bc_ref.x_max())
-# print("y_min", bc_ref.y_min())
-# print("y_max", bc_ref.y_max())
-# while ts.time() < 0.001:
-#     p, u, v = to_np_array(ts.mesh())
-#     print(p)
-#     fig = figure()
-#     ax = fig.gca(projection="3d")
-#     ax.plot_surface(x, y, p, cmap=cm.gist_heat)
-#     ax.contour(x, y, p)
-#     title("Part 1 RK1 Timestep at t={:.6}".format(ts.time()))
+print(assembly)
+bc_ref = assembly.boundaries()
+print("P_0", bc_ref.P_0())
+print("u_0", bc_ref.u_0())
+print("v_0", bc_ref.v_0())
+print("Beta", bc_ref.beta())
+print("x_min", bc_ref.x_min())
+print("x_max", bc_ref.x_max())
+print("y_min", bc_ref.y_min())
+print("y_max", bc_ref.y_max())
+while ts.time() < 0.000025:
+    p, u, v = to_np_array(ts.mesh())
+    print(ts.time(), p)
+    fig = figure()
+    ax = fig.gca(projection="3d")
+    ax.plot_surface(x, y, p, cmap=cm.gist_heat)
+    ax.contour(x, y, p)
+    title("Part 1 RK1 Timestep at t={:.6}".format(ts.time()))
 
-#     ts.timestep(0.8)
+    ts.timestep(0.8)
 
-# show()
+show()
