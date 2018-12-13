@@ -298,7 +298,77 @@ PYBIND11_MODULE(ins_solver, module) {
       .def("Dy_m1", &Discretization::Dy_m1<Mesh<40, 40>>)
       .def("Dy_m1", &Discretization::Dy_m1<Mesh<80, 80>>)
       .def("Dy_m1", &Discretization::Dy_m1<Mesh<160, 160>>)
-      .def("Dy_m1", &Discretization::Dy_m1<Mesh<1024, 1024>>);
+      .def("Dy_m1", &Discretization::Dy_m1<Mesh<1024, 1024>>)
+
+      .def("press_x_flux", &Discretization::press_x_flux<Mesh<10, 10>>)
+      .def("press_x_flux", &Discretization::press_x_flux<Mesh<20, 20>>)
+      .def("press_x_flux", &Discretization::press_x_flux<Mesh<40, 40>>)
+      .def("press_x_flux", &Discretization::press_x_flux<Mesh<80, 80>>)
+      .def("press_x_flux", &Discretization::press_x_flux<Mesh<160, 160>>)
+      .def("press_x_flux", &Discretization::press_x_flux<Mesh<1024, 1024>>)
+
+      .def("press_y_flux", &Discretization::press_y_flux<Mesh<10, 10>>)
+      .def("press_y_flux", &Discretization::press_y_flux<Mesh<20, 20>>)
+      .def("press_y_flux", &Discretization::press_y_flux<Mesh<40, 40>>)
+      .def("press_y_flux", &Discretization::press_y_flux<Mesh<80, 80>>)
+      .def("press_y_flux", &Discretization::press_y_flux<Mesh<160, 160>>)
+      .def("press_y_flux", &Discretization::press_y_flux<Mesh<1024, 1024>>)
+
+      .def("u_x_flux", &Discretization::u_x_flux<Mesh<10, 10>>)
+      .def("u_x_flux", &Discretization::u_x_flux<Mesh<20, 20>>)
+      .def("u_x_flux", &Discretization::u_x_flux<Mesh<40, 40>>)
+      .def("u_x_flux", &Discretization::u_x_flux<Mesh<80, 80>>)
+      .def("u_x_flux", &Discretization::u_x_flux<Mesh<160, 160>>)
+      .def("u_x_flux", &Discretization::u_x_flux<Mesh<1024, 1024>>)
+
+      .def("u_y_flux", &Discretization::u_y_flux<Mesh<10, 10>>)
+      .def("u_y_flux", &Discretization::u_y_flux<Mesh<20, 20>>)
+      .def("u_y_flux", &Discretization::u_y_flux<Mesh<40, 40>>)
+      .def("u_y_flux", &Discretization::u_y_flux<Mesh<80, 80>>)
+      .def("u_y_flux", &Discretization::u_y_flux<Mesh<160, 160>>)
+      .def("u_y_flux", &Discretization::u_y_flux<Mesh<1024, 1024>>)
+
+      .def("v_x_flux", &Discretization::v_x_flux<Mesh<10, 10>>)
+      .def("v_x_flux", &Discretization::v_x_flux<Mesh<20, 20>>)
+      .def("v_x_flux", &Discretization::v_x_flux<Mesh<40, 40>>)
+      .def("v_x_flux", &Discretization::v_x_flux<Mesh<80, 80>>)
+      .def("v_x_flux", &Discretization::v_x_flux<Mesh<160, 160>>)
+      .def("v_x_flux", &Discretization::v_x_flux<Mesh<1024, 1024>>)
+
+      .def("v_y_flux", &Discretization::v_y_flux<Mesh<10, 10>>)
+      .def("v_y_flux", &Discretization::v_y_flux<Mesh<20, 20>>)
+      .def("v_y_flux", &Discretization::v_y_flux<Mesh<40, 40>>)
+      .def("v_y_flux", &Discretization::v_y_flux<Mesh<80, 80>>)
+      .def("v_y_flux", &Discretization::v_y_flux<Mesh<160, 160>>)
+      .def("v_y_flux", &Discretization::v_y_flux<Mesh<1024, 1024>>)
+
+      .def("du_x_flux", &Discretization::du_x_flux<Mesh<10, 10>>)
+      .def("du_x_flux", &Discretization::du_x_flux<Mesh<20, 20>>)
+      .def("du_x_flux", &Discretization::du_x_flux<Mesh<40, 40>>)
+      .def("du_x_flux", &Discretization::du_x_flux<Mesh<80, 80>>)
+      .def("du_x_flux", &Discretization::du_x_flux<Mesh<160, 160>>)
+      .def("du_x_flux", &Discretization::du_x_flux<Mesh<1024, 1024>>)
+
+      .def("du_y_flux", &Discretization::du_y_flux<Mesh<10, 10>>)
+      .def("du_y_flux", &Discretization::du_y_flux<Mesh<20, 20>>)
+      .def("du_y_flux", &Discretization::du_y_flux<Mesh<40, 40>>)
+      .def("du_y_flux", &Discretization::du_y_flux<Mesh<80, 80>>)
+      .def("du_y_flux", &Discretization::du_y_flux<Mesh<160, 160>>)
+      .def("du_y_flux", &Discretization::du_y_flux<Mesh<1024, 1024>>)
+
+      .def("dv_x_flux", &Discretization::dv_x_flux<Mesh<10, 10>>)
+      .def("dv_x_flux", &Discretization::dv_x_flux<Mesh<20, 20>>)
+      .def("dv_x_flux", &Discretization::dv_x_flux<Mesh<40, 40>>)
+      .def("dv_x_flux", &Discretization::dv_x_flux<Mesh<80, 80>>)
+      .def("dv_x_flux", &Discretization::dv_x_flux<Mesh<160, 160>>)
+      .def("dv_x_flux", &Discretization::dv_x_flux<Mesh<1024, 1024>>)
+
+      .def("dv_y_flux", &Discretization::dv_y_flux<Mesh<10, 10>>)
+      .def("dv_y_flux", &Discretization::dv_y_flux<Mesh<20, 20>>)
+      .def("dv_y_flux", &Discretization::dv_y_flux<Mesh<40, 40>>)
+      .def("dv_y_flux", &Discretization::dv_y_flux<Mesh<80, 80>>)
+      .def("dv_y_flux", &Discretization::dv_y_flux<Mesh<160, 160>>)
+      .def("dv_y_flux", &Discretization::dv_y_flux<Mesh<1024, 1024>>);
 
   using Assembly = INSAssembly<Discretization>;
   py::class_<Assembly, Discretization>(module, "INSAssembly")
