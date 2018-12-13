@@ -32,6 +32,8 @@ constexpr void solve_thomas(ND_Array<Jacobian, ctrl_vols, 3> &lhs,
     // our powers, rather than the right
     // Using the inverse probably isn't the fastest way of doing this,
     // but it's easy and pretty, and for a 3x3 matrix, not too expensive
+    // Admittedly, this doesn't have a good condition number, so other methods
+    // should be considered in the future
     const Jacobian inv = lhs(i, 1).inverse();
 
     rhs(i) = inv * rhs(i);

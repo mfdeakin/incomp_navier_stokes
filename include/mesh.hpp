@@ -57,6 +57,11 @@ class [[nodiscard]] Mesh {
   }
 
   // Stored Physical Values
+  [[nodiscard]] constexpr triple operator()(const int i, const int j)
+      const noexcept {
+    return triple{press(i, j), u_vel(i, j), v_vel(i, j)};
+  }
+
   [[nodiscard]] constexpr const real &press(const int i, const int j)
       const noexcept {
     return _press(i, j);
