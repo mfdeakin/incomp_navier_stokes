@@ -351,5 +351,87 @@ PYBIND11_MODULE(ins_solver, module) {
                Assembly::jacobian_y_0<Mesh<160, 160>>)
       .def("jacobian_y_0",
            (Jacobian(Assembly::*)(Mesh<1024, 1024> &, int, int, real)) &
-               Assembly::jacobian_y_0<Mesh<1024, 1024>>);
+               Assembly::jacobian_y_0<Mesh<1024, 1024>>)
+
+      .def("Dx_p1", (Jacobian(Assembly::*)(Mesh<10, 10> &, int, int, real)) &
+                        Assembly::Dx_p1<Mesh<10, 10>>)
+      .def("Dx_p1", (Jacobian(Assembly::*)(Mesh<20, 20> &, int, int, real)) &
+                        Assembly::Dx_p1<Mesh<20, 20>>)
+      .def("Dx_p1", (Jacobian(Assembly::*)(Mesh<40, 40> &, int, int, real)) &
+                        Assembly::Dx_p1<Mesh<40, 40>>)
+      .def("Dx_p1", (Jacobian(Assembly::*)(Mesh<80, 80> &, int, int, real)) &
+                        Assembly::Dx_p1<Mesh<80, 80>>)
+      .def("Dx_p1", (Jacobian(Assembly::*)(Mesh<160, 160> &, int, int, real)) &
+                        Assembly::Dx_p1<Mesh<160, 160>>)
+      .def("Dx_p1",
+           (Jacobian(Assembly::*)(Mesh<1024, 1024> &, int, int, real)) &
+               Assembly::Dx_p1<Mesh<1024, 1024>>)
+
+      .def("Dx_0", (Jacobian(Assembly::*)(Mesh<10, 10> &, int, int, real)) &
+                       Assembly::Dx_0<Mesh<10, 10>>)
+      .def("Dx_0", (Jacobian(Assembly::*)(Mesh<20, 20> &, int, int, real)) &
+                       Assembly::Dx_0<Mesh<20, 20>>)
+      .def("Dx_0", (Jacobian(Assembly::*)(Mesh<40, 40> &, int, int, real)) &
+                       Assembly::Dx_0<Mesh<40, 40>>)
+      .def("Dx_0", (Jacobian(Assembly::*)(Mesh<80, 80> &, int, int, real)) &
+                       Assembly::Dx_0<Mesh<80, 80>>)
+      .def("Dx_0", (Jacobian(Assembly::*)(Mesh<160, 160> &, int, int, real)) &
+                       Assembly::Dx_0<Mesh<160, 160>>)
+      .def("Dx_0", (Jacobian(Assembly::*)(Mesh<1024, 1024> &, int, int, real)) &
+                       Assembly::Dx_0<Mesh<1024, 1024>>)
+
+      .def("Dx_m1", (Jacobian(Assembly::*)(Mesh<10, 10> &, int, int, real)) &
+                        Assembly::Dx_m1<Mesh<10, 10>>)
+      .def("Dx_m1", (Jacobian(Assembly::*)(Mesh<20, 20> &, int, int, real)) &
+                        Assembly::Dx_m1<Mesh<20, 20>>)
+      .def("Dx_m1", (Jacobian(Assembly::*)(Mesh<40, 40> &, int, int, real)) &
+                        Assembly::Dx_m1<Mesh<40, 40>>)
+      .def("Dx_m1", (Jacobian(Assembly::*)(Mesh<80, 80> &, int, int, real)) &
+                        Assembly::Dx_m1<Mesh<80, 80>>)
+      .def("Dx_m1", (Jacobian(Assembly::*)(Mesh<160, 160> &, int, int, real)) &
+                        Assembly::Dx_m1<Mesh<160, 160>>)
+      .def("Dx_m1",
+           (Jacobian(Assembly::*)(Mesh<1024, 1024> &, int, int, real)) &
+               Assembly::Dx_m1<Mesh<1024, 1024>>)
+
+      .def("Dy_p1", (Jacobian(Assembly::*)(Mesh<10, 10> &, int, int, real)) &
+                        Assembly::Dy_p1<Mesh<10, 10>>)
+      .def("Dy_p1", (Jacobian(Assembly::*)(Mesh<20, 20> &, int, int, real)) &
+                        Assembly::Dy_p1<Mesh<20, 20>>)
+      .def("Dy_p1", (Jacobian(Assembly::*)(Mesh<40, 40> &, int, int, real)) &
+                        Assembly::Dy_p1<Mesh<40, 40>>)
+      .def("Dy_p1", (Jacobian(Assembly::*)(Mesh<80, 80> &, int, int, real)) &
+                        Assembly::Dy_p1<Mesh<80, 80>>)
+      .def("Dy_p1", (Jacobian(Assembly::*)(Mesh<160, 160> &, int, int, real)) &
+                        Assembly::Dy_p1<Mesh<160, 160>>)
+      .def("Dy_p1",
+           (Jacobian(Assembly::*)(Mesh<1024, 1024> &, int, int, real)) &
+               Assembly::Dy_p1<Mesh<1024, 1024>>)
+
+      .def("Dy_0", (Jacobian(Assembly::*)(Mesh<10, 10> &, int, int, real)) &
+                       Assembly::Dy_0<Mesh<10, 10>>)
+      .def("Dy_0", (Jacobian(Assembly::*)(Mesh<20, 20> &, int, int, real)) &
+                       Assembly::Dy_0<Mesh<20, 20>>)
+      .def("Dy_0", (Jacobian(Assembly::*)(Mesh<40, 40> &, int, int, real)) &
+                       Assembly::Dy_0<Mesh<40, 40>>)
+      .def("Dy_0", (Jacobian(Assembly::*)(Mesh<80, 80> &, int, int, real)) &
+                       Assembly::Dy_0<Mesh<80, 80>>)
+      .def("Dy_0", (Jacobian(Assembly::*)(Mesh<160, 160> &, int, int, real)) &
+                       Assembly::Dy_0<Mesh<160, 160>>)
+      .def("Dy_0", (Jacobian(Assembly::*)(Mesh<1024, 1024> &, int, int, real)) &
+                       Assembly::Dy_0<Mesh<1024, 1024>>)
+
+      .def("Dy_m1", (Jacobian(Assembly::*)(Mesh<10, 10> &, int, int, real)) &
+                        Assembly::Dy_m1<Mesh<10, 10>>)
+      .def("Dy_m1", (Jacobian(Assembly::*)(Mesh<20, 20> &, int, int, real)) &
+                        Assembly::Dy_m1<Mesh<20, 20>>)
+      .def("Dy_m1", (Jacobian(Assembly::*)(Mesh<40, 40> &, int, int, real)) &
+                        Assembly::Dy_m1<Mesh<40, 40>>)
+      .def("Dy_m1", (Jacobian(Assembly::*)(Mesh<80, 80> &, int, int, real)) &
+                        Assembly::Dy_m1<Mesh<80, 80>>)
+      .def("Dy_m1", (Jacobian(Assembly::*)(Mesh<160, 160> &, int, int, real)) &
+                        Assembly::Dy_m1<Mesh<160, 160>>)
+      .def("Dy_m1",
+           (Jacobian(Assembly::*)(Mesh<1024, 1024> &, int, int, real)) &
+               Assembly::Dy_m1<Mesh<1024, 1024>>);
 }

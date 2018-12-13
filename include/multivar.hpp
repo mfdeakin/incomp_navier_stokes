@@ -223,10 +223,14 @@ class Jacobian : public ND_Array<triple, 3> {
   }
 
   constexpr Jacobian operator*=(const Jacobian rhs) noexcept {
-    for(int i = 0; i < this->extent(0); i++) {
-      for(int j = 0; j < this->extent(1); j++) {
-        get(i, j) -= rhs(i, j);
+    for(int r = 0; r < this->extent(0); r++) {
+			triple new_row;
+      for(int c = 0; c < this->extent(1); c++) {
+				new_row(c) = (row(r) * rhs.column(c)).sum();
       }
+			for(int c = 0; c < this->extent(1); c++) {
+				get(r, c) = new_row(c);
+			}
     }
     return *this;
   }
@@ -356,8 +360,8 @@ constexpr Jacobian operator-(const Jacobian &lhs,
 
 constexpr Jacobian operator*(const Jacobian &lhs,
                              const Jacobian &rhs) noexcept {
-  Jacobian s(rhs);
-  s *= lhs;
+  Jacobian s(lhs);
+  s *= rhs;
   return s;
 }
 
