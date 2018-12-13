@@ -30,7 +30,7 @@ class [[nodiscard]] INSAssembly : public _SpaceDisc {
     const real reynolds = this->boundaries().reynolds();
 
     const auto diag_term = [=](const real vel2, const real p,
-                              const real vel_deriv) {
+                               const real vel_deriv) {
       return vel2 + p - vel_deriv / reynolds;
     };
 
@@ -105,15 +105,20 @@ class [[nodiscard]] SecondOrderCentered {
 
   // Terms for implicit euler
   template <typename MeshT>
-  [[nodiscard]] constexpr Jacobian jacobian_x_base(const MeshT &mesh, int i,
-                                                   int j) const noexcept {
+  [[nodiscard]] constexpr Jacobian jacobian_x_base(
+      const MeshT &mesh, const int i, const int j, const real time)
+      const noexcept {
     Jacobian j_x((Jacobian::ZeroTag()));
     j_x(0, 0) = 0.0;
     j_x(0, 1) = 0.5 / boundaries().beta();
     j_x(0, 2) = 0.0;
 
+    const real u_here  = boundaries().u_vel_at(mesh, time, i, j);
+    const real u_right = boundaries().u_vel_at(mesh, time, i + 1, j);
+
     j_x(1, 0) = 0.5;
-    j_x(1, 1) = 0.5 * (mesh.u_vel(i + 1, j) + mesh.u_vel(i, j));
+    // j_x(1, 1) = 0.5 * (mesh.u_vel(i + 1, j) + mesh.u_vel(i, j));
+    j_x(1, 1) = 0.5 * (u_right + u_here);
     j_x(1, 2) = 0.0;
 
     j_x(2, 0) = 0.0;
@@ -123,10 +128,11 @@ class [[nodiscard]] SecondOrderCentered {
   }
 
   template <typename MeshT>
-  [[nodiscard]] constexpr Jacobian jacobian_x_0(const MeshT &mesh, int i, int j)
+  [[nodiscard]] constexpr Jacobian jacobian_x_0(const MeshT &mesh, const int i,
+                                                const int j, const real time)
       const noexcept {
     // This is the Jacobian of F_{i+1/2,j} wrt U_{i,j}
-    Jacobian b_x(jacobian_x_base(mesh, i, j));
+    Jacobian b_x(jacobian_x_base(mesh, i, j, time));
     const real deriv_term = 1.0 / (boundaries().reynolds() * mesh.dx());
     b_x(1, 1) += deriv_term;
     b_x(2, 2) += deriv_term;
@@ -134,46 +140,60 @@ class [[nodiscard]] SecondOrderCentered {
   }
 
   template <typename MeshT>
-  [[nodiscard]] constexpr Jacobian jacobian_x_p1(const MeshT &mesh, int i,
-                                                 int j) const noexcept {
+  [[nodiscard]] constexpr Jacobian jacobian_x_p1(const MeshT &mesh, const int i,
+                                                 const int j, const real time)
+      const noexcept {
     // This is the Jacobian of F_{i+1/2,j} wrt U_{i+1,j}
-    Jacobian b_x(jacobian_x_base(mesh, i, j));
+    Jacobian b_x(jacobian_x_base(mesh, i, j, time));
     const real deriv_term = 1.0 / (boundaries().reynolds() * mesh.dx());
     b_x(1, 1) -= deriv_term;
     b_x(2, 2) -= deriv_term;
     return b_x;
   }
 
+  // Recall:
+  // A_x \delta U_{i-1, j} = -\delta F_{i-0.5, j} / {\delta U_{i-1, j} \Delta x}
+  // B_x = {\delta (F_{i+0.5, j} - F_{i-0.5, j})} / {\delta U_{i, j} \Delta x}
+  // C_x = {\delta F_{i+0.5, j}} / {\delta U_{i+1, j} \Delta x}
+
+  // The C term of the system
   template <typename MeshT>
-  [[nodiscard]] constexpr Jacobian Dx_p1(const MeshT &mesh, int i, int j)
+  [[nodiscard]] constexpr Jacobian Dx_p1(const MeshT &mesh, const int i,
+                                         const int j, const real time)
       const noexcept {
     if(i < mesh.x_dim() - 1) {
-      return jacobian_x_p1(mesh, i, j) * (1.0 / mesh.dx());
+      return jacobian_x_p1(mesh, i, j, time) * (1.0 / mesh.dx());
     } else {
       return Jacobian(Jacobian::ZeroTag());
     }
   }
 
+  // The B term of the system
   template <typename MeshT>
-  [[nodiscard]] constexpr Jacobian Dx_0(const MeshT &mesh, int i, int j)
+  [[nodiscard]] constexpr Jacobian Dx_0(const MeshT &mesh, const int i,
+                                        const int j, const real time)
       const noexcept {
-    return (jacobian_x_0(mesh, i, j) - jacobian_x_p1(mesh, i - 1, j)) *
+    return (jacobian_x_0(mesh, i, j, time) -
+            jacobian_x_p1(mesh, i - 1, j, time)) *
            (1.0 / mesh.dx());
   }
 
+  // The A term of the system
   template <typename MeshT>
-  [[nodiscard]] constexpr Jacobian Dx_m1(const MeshT &mesh, int i, int j)
+  [[nodiscard]] constexpr Jacobian Dx_m1(const MeshT &mesh, const int i,
+                                         const int j, const real time)
       const noexcept {
     if(i > 0) {
-      return jacobian_x_0(mesh, i - 1, j) * (-1.0 / mesh.dx());
+      return jacobian_x_0(mesh, i - 1, j, time) * (-1.0 / mesh.dx());
     } else {
       return Jacobian(Jacobian::ZeroTag());
     }
   }
 
   template <typename MeshT>
-  [[nodiscard]] constexpr Jacobian jacobian_y_base(const MeshT &mesh, int i,
-                                                   int j) const noexcept {
+  [[nodiscard]] constexpr Jacobian jacobian_y_base(
+      const MeshT &mesh, const int i, const int j, const real time)
+      const noexcept {
     Jacobian j_y((Jacobian::ZeroTag()));
     j_y(0, 0) = 0.0;
     j_y(0, 1) = 0.0;
@@ -192,10 +212,11 @@ class [[nodiscard]] SecondOrderCentered {
   }
 
   template <typename MeshT>
-  [[nodiscard]] constexpr Jacobian jacobian_y_0(const MeshT &mesh, int i, int j)
+  [[nodiscard]] constexpr Jacobian jacobian_y_0(const MeshT &mesh, const int i,
+                                                const int j, const real time)
       const noexcept {
-    // This is the Jacobian of F_{i+1/2,j} wrt U_{i,j}
-    Jacobian j_y(jacobian_x_base(mesh, i, j));
+    // This is the Jacobian of G_{i+1/2,j} wrt U_{i,j}
+    Jacobian j_y(jacobian_y_base(mesh, i, j, time));
     const real deriv_term = 1.0 / (boundaries().reynolds() * mesh.dy());
     j_y(1, 1) += deriv_term;
     j_y(2, 2) += deriv_term;
@@ -203,38 +224,45 @@ class [[nodiscard]] SecondOrderCentered {
   }
 
   template <typename MeshT>
-  [[nodiscard]] constexpr Jacobian jacobian_y_p1(const MeshT &mesh, int i,
-                                                 int j) const noexcept {
-    // This is the Jacobian of F_{i+1/2,j} wrt U_{i+1,j}
-    Jacobian j_y(jacobian_x_base(mesh, i, j));
+  [[nodiscard]] constexpr Jacobian jacobian_y_p1(const MeshT &mesh, const int i,
+                                                 const int j, const real time)
+      const noexcept {
+    // This is the Jacobian of G_{i+1/2,j} wrt U_{i+1,j}
+    Jacobian j_y(jacobian_y_base(mesh, i, j, time));
     const real deriv_term = 1.0 / (boundaries().reynolds() * mesh.dy());
     j_y(1, 1) -= deriv_term;
     j_y(2, 2) -= deriv_term;
     return j_y;
   }
 
+  // The C term of the system
   template <typename MeshT>
-  [[nodiscard]] constexpr Jacobian Dy_p1(const MeshT &mesh, int i, int j)
-      const noexcept {
+  [[nodiscard]] constexpr Jacobian Dy_p1(const MeshT &mesh, int i, int j,
+                                         const real time) const noexcept {
     if(j < mesh.y_dim() - 1) {
-      return jacobian_y_p1(mesh, i, j) * (1.0 / mesh.dy());
+      return jacobian_y_p1(mesh, i, j, time) * (1.0 / mesh.dy());
     } else {
       return Jacobian(Jacobian::ZeroTag());
     }
   }
 
+  // The B term of the system
   template <typename MeshT>
-  [[nodiscard]] constexpr Jacobian Dy_0(const MeshT &mesh, int i, int j)
+  [[nodiscard]] constexpr Jacobian Dy_0(const MeshT &mesh, const int i,
+                                        const int j, const real time)
       const noexcept {
-    return (jacobian_y_0(mesh, i, j) - jacobian_y_p1(mesh, i, j - 1)) *
+    return (jacobian_y_0(mesh, i, j, time) -
+            jacobian_y_p1(mesh, i, j - 1, time)) *
            (1.0 / mesh.dy());
   }
 
+  // The A term of the system
   template <typename MeshT>
-  [[nodiscard]] constexpr Jacobian Dy_m1(const MeshT &mesh, int i, int j)
+  [[nodiscard]] constexpr Jacobian Dy_m1(const MeshT &mesh, const int i,
+                                         const int j, const real time)
       const noexcept {
     if(j > 0) {
-      return jacobian_y_0(mesh, i, j - 1) * (-1.0 / mesh.dy());
+      return jacobian_y_0(mesh, i, j - 1, time) * (-1.0 / mesh.dy());
     } else {
       return Jacobian(Jacobian::ZeroTag());
     }
