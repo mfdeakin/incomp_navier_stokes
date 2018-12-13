@@ -7,6 +7,7 @@
 #include "nd_array/nd_array.hpp"
 
 #include <cstddef>
+#include <cstdio>
 #include <initializer_list>
 #include <utility>
 
@@ -91,7 +92,21 @@ class triple : public ND_Array<real, 3> {
     }
     return *this;
   }
+
+  constexpr triple &operator/=(const real rhs) noexcept {
+    const real rhs_inv = 1.0 / rhs;
+    for(int i = 0; i < 3; i++) {
+      (*this)(i) *= rhs_inv;
+    }
+    return *this;
+  }
 };
+
+constexpr triple operator-(const triple &t) noexcept {
+  triple s{0.0, 0.0, 0.0};
+  s -= t;
+  return s;
+}
 
 constexpr triple operator+(const triple &lhs, const triple &rhs) noexcept {
   triple s(lhs);
@@ -111,12 +126,6 @@ constexpr triple operator*(const triple &lhs, const triple &rhs) noexcept {
   return s;
 }
 
-constexpr triple operator/(const triple &lhs, const triple &rhs) noexcept {
-  triple s(lhs);
-  s /= rhs;
-  return s;
-}
-
 constexpr triple operator*(const real lhs, const triple &rhs) noexcept {
   triple s(rhs);
   s *= lhs;
@@ -126,6 +135,18 @@ constexpr triple operator*(const real lhs, const triple &rhs) noexcept {
 constexpr triple operator*(const triple &lhs, const real rhs) noexcept {
   triple s(lhs);
   s *= rhs;
+  return s;
+}
+
+constexpr triple operator/(const triple &lhs, const triple &rhs) noexcept {
+  triple s(lhs);
+  s /= rhs;
+  return s;
+}
+
+constexpr triple operator/(const triple &lhs, const real rhs) noexcept {
+  triple s(lhs);
+  s /= rhs;
   return s;
 }
 
@@ -169,14 +190,10 @@ class Jacobian : public ND_Array<triple, 3> {
     }
   }
 
-  [[nodiscard]] constexpr real &get(int r, int c) noexcept {
-    triple &t((*this)(r));
-    return t(c);
-  }
+  [[nodiscard]] constexpr real &get(int r, int c) noexcept { return row(r)(c); }
 
   [[nodiscard]] constexpr const real &get(int r, int c) const noexcept {
-    const triple &t((*this)(r));
-    return t(c);
+    return row(r)(c);
   }
 
   [[nodiscard]] constexpr real &operator()(int r, int c) noexcept {
@@ -224,9 +241,10 @@ class Jacobian : public ND_Array<triple, 3> {
   }
 
   constexpr Jacobian operator/=(const real rhs) noexcept {
+    const real rhs_inv = 1.0 / rhs;
     for(int i = 0; i < this->extent(0); i++) {
       for(int j = 0; j < this->extent(1); j++) {
-        get(i, j) /= rhs;
+        get(i, j) *= rhs_inv;
       }
     }
     return *this;
@@ -247,11 +265,11 @@ class Jacobian : public ND_Array<triple, 3> {
   }
 
   [[nodiscard]] constexpr real det() const noexcept {
-    real det = 0.0;
-    for(int i = 0; i < this->extent(0); i++) {
-      det = get(i, 0) * minor(i, 0) - det;
+    real d = 0.0;
+    for(int r = 0; r < this->extent(0); r++) {
+      d = get(r, 0) * minor(r, 0) - d;
     }
-    return det;
+    return d;
   }
 
   // Use the method of cofactors to compute the inverse
@@ -259,12 +277,47 @@ class Jacobian : public ND_Array<triple, 3> {
     Jacobian inv;
     assert(det() != 0.0);
     const real d = 1.0 / det();
+		real cofactor = 1.0;
     for(int i = 0; i < inv.extent(1); i++) {
+			if(i % 2 == 1) {
+				cofactor = -1.0;
+			}
+			else {
+				cofactor = 1.0;
+			}
       for(int j = 0; j < inv.extent(0); j++) {
-        inv(j, i) = d * minor(i, j);
+        inv(j, i) = cofactor * d * minor(i, j);
+				cofactor *= -1.0;
       }
     }
     return inv;
+  }
+
+	[[nodiscard]] constexpr Jacobian minors() const noexcept {
+		Jacobian M;
+		for(int r = 0; r < this->extent(0); r++) {
+			for(int c = 0; c < this->extent(1); c++) {
+				M(r, c) = minor(r, c);
+			}
+		}
+		return M;
+	}
+
+  [[nodiscard]] constexpr real minor(const int r, const int c) const noexcept {
+    const auto indices = [](const int omit) {
+      if(omit == 0) {
+        return std::pair<int, int>(1, 2);
+      } else if(omit == 1) {
+        return std::pair<int, int>(0, 2);
+      } else {
+        return std::pair<int, int>(0, 1);
+      }
+    };
+    const auto [left, right] = indices(c);
+    const auto [top, bottom] = indices(r);
+
+    return get(top, left) * get(bottom, right) -
+           get(top, right) * get(bottom, left);
   }
 
  protected:
@@ -275,30 +328,17 @@ class Jacobian : public ND_Array<triple, 3> {
   [[nodiscard]] constexpr const triple &operator()(int r) const noexcept {
     return Base::operator()(r);
   }
+};
 
-  [[nodiscard]] constexpr real minor(const int i, const int j) const noexcept {
-    const auto indices = [](const int omit) {
-      if(omit == 0) {
-        return std::pair<int, int>(1, 2);
-      } else if(omit == 1) {
-        return std::pair<int, int>(0, 2);
-      } else {
-        return std::pair<int, int>(0, 1);
-      }
-    };
-    const auto [left, right] = indices(i);
-    const auto [top, bottom] = indices(j);
-
-    const real minor = get(top, left) * get(bottom, right) -
-                       get(top, right) * get(bottom, left);
-    const bool neg = ((i + j) % 2 == 1);
-    if(neg) {
-      return -minor;
-    } else {
-      return minor;
+constexpr Jacobian operator-(const Jacobian &J) noexcept {
+  Jacobian K;
+  for(int i = 0; i < K.extent(0); i++) {
+    for(int j = 0; j < K.extent(1); j++) {
+      K(i, j) = -J(i, j);
     }
   }
-};
+  return K;
+}
 
 constexpr Jacobian operator+(const Jacobian &lhs,
                              const Jacobian &rhs) noexcept {
