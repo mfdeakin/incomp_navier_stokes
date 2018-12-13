@@ -83,7 +83,7 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceDisc> {
         _sol_dy(std::make_unique<SolVecY>()) {}
 
   void timestep(const real dt) {
-    const MeshT &mesh = this->mesh();
+    const MeshT &mesh                   = this->mesh();
     const SpaceAssembly &space_assembly = this->space_assembly();
     // First we need to construct our vector to use with the Thomas algorithm
     // Start with the x direction - we need a ghost cell on each vertical edge
@@ -103,9 +103,9 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceDisc> {
     MtxXMesh &dx_mesh = dx.template reshape<MtxXMesh>();
 
     // Enforce our boundary conditions
-		// In the X direction, 
+    // In the X direction,
     for(int j = 0; j < MeshT::y_dim(); j++) {
-			// All of our boundary conditions require the walls to be non-porous
+      // All of our boundary conditions require the walls to be non-porous
       sol_dx_mesh(j, 0)                  = 0.0;
       sol_dx_mesh(j, MeshT::x_dim() + 1) = 0.0;
 
@@ -122,9 +122,12 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceDisc> {
     }
     for(int i = 0; i < MeshT::x_dim(); i++) {
       for(int j = 0; j < MeshT::y_dim(); j++) {
-        dx_mesh(j, i + 1, 0) = space_assembly.Dx_m1(mesh, i + 1, j) * dt;
-        dx_mesh(j, i + 1, 1) = space_assembly.Dx_0(mesh, i + 1, j) * dt;
-        dx_mesh(j, i + 1, 2) = space_assembly.Dx_p1(mesh, i + 1, j) * dt;
+        dx_mesh(j, i + 1, 0) =
+            space_assembly.Dx_m1(mesh, i + 1, j, this->time()) * dt;
+        dx_mesh(j, i + 1, 1) =
+            space_assembly.Dx_0(mesh, i + 1, j, this->time()) * dt;
+        dx_mesh(j, i + 1, 2) =
+            space_assembly.Dx_p1(mesh, i + 1, j, this->time()) * dt;
       }
     }
     solve_thomas(dx, sol_dx);
@@ -166,9 +169,9 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceDisc> {
         // + \Delta y^{-2}) \Delta t) \delta T_{i, j} (v_{i, j + 1} / (2.0
         // \Delta y) - 1.0 / (Re * Pr * \Delta y^2)) \delta T_{i, j + 1} \Delta
         // t
-        dy(m, 0) = space_assembly.Dy_m1(mesh, i, j) * dt;
-        dy(m, 1) = space_assembly.Dy_0(mesh, i, j) * dt;
-        dy(m, 2) = space_assembly.Dy_p1(mesh, i, j) * dt;
+        dy(m, 0) = space_assembly.Dy_m1(mesh, i, j, this->time()) * dt;
+        dy(m, 1) = space_assembly.Dy_0(mesh, i, j, this->time()) * dt;
+        dy(m, 2) = space_assembly.Dy_p1(mesh, i, j, this->time()) * dt;
       }
     }
     solve_thomas(dy, sol_dy);
