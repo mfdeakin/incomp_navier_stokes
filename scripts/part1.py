@@ -7,6 +7,7 @@ from ins_solver import RK1_160x160, RK1_80x80, RK1_40x40, RK1_20x20, RK1_10x10
 from ins_solver import to_np_array, x_y_coords
 from ins_solver import BConds_Part1
 from ins_solver import INSAssembly
+from ins_solver import Jacobian, triple
 
 from matplotlib.pyplot import figure, contour, show, clabel, title
 from mpl_toolkits.mplot3d import Axes3D
@@ -122,6 +123,56 @@ p_err_160, u_err_160, v_err_160 = plot_errs(Mesh_160x160, True)
 print("160 Convergence Rate Pressure: {} u: {} v: {}".format(log2(p_err_080 / p_err_160),
                                                              log2(u_err_080 / u_err_160),
                                                              log2(v_err_080 / v_err_160)))
+
+def test_jacobian(MeshT):
+    bc = BConds_Part1(P_0 = 0.0, u_0 = 1.0, v_0 = 0.0, beta = 1.0, reynolds = 1.0)
+    sd = INSAssembly(bc)
+
+    center = (MeshT.x_dim() // 2, MeshT.y_dim() // 2)
+
+    m_orig = MeshT()
+    bc.init_mesh(m_orig)
+
+    epsilon = triple(1e-6, 1e-6, 1e-6)
+
+    m_delta = MeshT()
+
+    m_delta[center[0], center[1]] = epsilon
+
+    m_next = MeshT()
+    bc.init_mesh(m_next)
+    m_next[center[0], center[1]] += epsilon
+
+    offsets = [(0, -1), (-1, 0), (0, 0), (1, 0), (0, 1)]
+
+    for i_off, j_off in offsets:
+        i, j = (center[0] + i_off, center[1] + j_off)
+
+        # j_f_U_m1_approx = sd.jacobian_x_p1(m_orig, i, j - 1, 0.0) * m_delta[i - 1, j]
+        # j_f_U_approx = sd.jacobian_x_0(m_orig, i, j, 0.0) * m_delta[i, j]
+        # j_f_U_p1_approx = sd.jacobian_x_p1(m_orig, i, j, 0.0) * m_delta[i + 1, j]
+
+        # j_g_U_m1_approx = sd.jacobian_y_p1(m_orig, i, j - 1, 0.0) * m_delta[i, j - 1]
+        # j_g_U_approx = sd.jacobian_y_0(m_orig, i, j, 0.0) * m_delta[i, j]
+        # j_g_U_p1_approx = sd.jacobian_y_p1(m_orig, i, j, 0.0) * m_delta[i, j + 1]
+
+        # delta_U = ((j_f_U_m1_approx + j_f_U_approx + j_f_U_p1_approx)
+        #            + (j_g_U_m1_approx + j_g_U_approx + j_g_U_p1_approx))
+
+        delta_U = ((sd.Dx_m1(m_orig, i, j, 0.0) * m_delta[i - 1, j] +
+                    sd.Dx_0(m_orig, i, j, 0.0) * m_delta[i, j] +
+                    sd.Dx_p1(m_orig, i, j, 0.0) * m_delta[i + 1, j]) +
+                   (sd.Dy_m1(m_orig, i, j, 0.0) * m_delta[i, j - 1] +
+                    sd.Dy_0(m_orig, i, j, 0.0) * m_delta[i, j] +
+                    sd.Dy_p1(m_orig, i, j, 0.0) * m_delta[i, j + 1]))
+
+        orig_fi = sd.flux_integral(m_orig, i, j, 0.0)
+        approx_t = orig_fi + delta_U
+        err = sd.flux_integral(m_next, i, j, 0.0) - approx_t
+        print("Linear Approximation Error at {}, {}:".format(i, j))
+        print(err)
+
+test_jacobian(Mesh_20x20)
 
 show()
 
