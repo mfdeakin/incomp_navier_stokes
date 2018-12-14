@@ -202,14 +202,12 @@ class [[nodiscard]] SecondOrderCentered {
     j_y(0, 2) = -0.5 / boundaries().beta();
 
     j_y(1, 0) = 0.0;
-    j_y(1, 1) = -0.25 * (mesh.v_vel(i, j + 1) + mesh.v_vel(i, j)) -
-                1.0 / (boundaries().reynolds() * mesh.dy());
-    j_y(1, 2) = -0.25 * (mesh.u_vel(i + 1, j) + mesh.u_vel(i, j));
+    j_y(1, 1) = -0.25 * (mesh.v_vel(i, j + 1) + mesh.v_vel(i, j));
+    j_y(1, 2) = -0.25 * (mesh.u_vel(i, j + 1) + mesh.u_vel(i, j));
 
     j_y(2, 0) = -0.5;
     j_y(2, 1) = 0.0;
-    j_y(2, 2) = -0.5 * (mesh.v_vel(i, j + 1) + mesh.v_vel(i, j)) -
-                1.0 / (boundaries().reynolds() * mesh.dy());
+    j_y(2, 2) = -0.5 * (mesh.v_vel(i, j + 1) + mesh.v_vel(i, j));
     return j_y;
   }
 
