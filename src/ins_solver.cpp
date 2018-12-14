@@ -407,12 +407,12 @@ PYBIND11_MODULE(ins_solver, module) {
       .def("jacobian_x_0", &Assembly::jacobian_x_0<Mesh<160, 160>>)
       .def("jacobian_x_0", &Assembly::jacobian_x_0<Mesh<1024, 1024>>)
 
-      .def("jacobian_y_p1", &Assembly::jacobian_x_p1<Mesh<10, 10>>)
-      .def("jacobian_y_p1", &Assembly::jacobian_x_p1<Mesh<20, 20>>)
-      .def("jacobian_y_p1", &Assembly::jacobian_x_p1<Mesh<40, 40>>)
-      .def("jacobian_y_p1", &Assembly::jacobian_x_p1<Mesh<80, 80>>)
-      .def("jacobian_y_p1", &Assembly::jacobian_x_p1<Mesh<160, 160>>)
-      .def("jacobian_y_p1", &Assembly::jacobian_x_p1<Mesh<1024, 1024>>)
+      .def("jacobian_y_p1", &Assembly::jacobian_y_p1<Mesh<10, 10>>)
+      .def("jacobian_y_p1", &Assembly::jacobian_y_p1<Mesh<20, 20>>)
+      .def("jacobian_y_p1", &Assembly::jacobian_y_p1<Mesh<40, 40>>)
+      .def("jacobian_y_p1", &Assembly::jacobian_y_p1<Mesh<80, 80>>)
+      .def("jacobian_y_p1", &Assembly::jacobian_y_p1<Mesh<160, 160>>)
+      .def("jacobian_y_p1", &Assembly::jacobian_y_p1<Mesh<1024, 1024>>)
 
       .def("jacobian_y_0", &Assembly::jacobian_y_0<Mesh<10, 10>>)
       .def("jacobian_y_0", &Assembly::jacobian_y_0<Mesh<20, 20>>)

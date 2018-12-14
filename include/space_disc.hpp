@@ -108,22 +108,24 @@ class [[nodiscard]] SecondOrderCentered {
   [[nodiscard]] constexpr Jacobian jacobian_x_base(
       const MeshT &mesh, const int i, const int j, const real time)
       const noexcept {
-    Jacobian j_x((Jacobian::ZeroTag()));
+    Jacobian j_x;
     j_x(0, 0) = 0.0;
-    j_x(0, 1) = 0.5 / boundaries().beta();
+    j_x(0, 1) = -0.5 / boundaries().beta();
     j_x(0, 2) = 0.0;
 
     const real u_here  = boundaries().u_vel_at(mesh, time, i, j);
     const real u_right = boundaries().u_vel_at(mesh, time, i + 1, j);
 
-    j_x(1, 0) = 0.5;
-    // j_x(1, 1) = 0.5 * (mesh.u_vel(i + 1, j) + mesh.u_vel(i, j));
-    j_x(1, 1) = 0.5 * (u_right + u_here);
+    j_x(1, 0) = -0.5;
+    j_x(1, 1) = -0.5 * (u_right + u_here);
     j_x(1, 2) = 0.0;
 
+    const real v_here  = boundaries().v_vel_at(mesh, time, i, j);
+    const real v_right = boundaries().v_vel_at(mesh, time, i + 1, j);
+
     j_x(2, 0) = 0.0;
-    j_x(2, 1) = 0.25 * (mesh.v_vel(i + 1, j) + mesh.v_vel(i, j));
-    j_x(2, 2) = 0.25 * (mesh.u_vel(i + 1, j) + mesh.u_vel(i, j));
+    j_x(2, 1) = -0.25 * (v_right + v_here);
+    j_x(2, 2) = -0.25 * (u_right + u_here);
     return j_x;
   }
 
@@ -134,8 +136,8 @@ class [[nodiscard]] SecondOrderCentered {
     // This is the Jacobian of F_{i+1/2,j} wrt U_{i,j}
     Jacobian b_x(jacobian_x_base(mesh, i, j, time));
     const real deriv_term = 1.0 / (boundaries().reynolds() * mesh.dx());
-    b_x(1, 1) += deriv_term;
-    b_x(2, 2) += deriv_term;
+    b_x(1, 1) -= deriv_term;
+    b_x(2, 2) -= deriv_term;
     return b_x;
   }
 
@@ -146,8 +148,8 @@ class [[nodiscard]] SecondOrderCentered {
     // This is the Jacobian of F_{i+1/2,j} wrt U_{i+1,j}
     Jacobian b_x(jacobian_x_base(mesh, i, j, time));
     const real deriv_term = 1.0 / (boundaries().reynolds() * mesh.dx());
-    b_x(1, 1) -= deriv_term;
-    b_x(2, 2) -= deriv_term;
+    b_x(1, 1) += deriv_term;
+    b_x(2, 2) += deriv_term;
     return b_x;
   }
 
@@ -194,19 +196,19 @@ class [[nodiscard]] SecondOrderCentered {
   [[nodiscard]] constexpr Jacobian jacobian_y_base(
       const MeshT &mesh, const int i, const int j, const real time)
       const noexcept {
-    Jacobian j_y((Jacobian::ZeroTag()));
+    Jacobian j_y;
     j_y(0, 0) = 0.0;
     j_y(0, 1) = 0.0;
-    j_y(0, 2) = 0.5 / boundaries().beta();
+    j_y(0, 2) = -0.5 / boundaries().beta();
 
     j_y(1, 0) = 0.0;
-    j_y(1, 1) = 0.25 * (mesh.v_vel(i, j + 1) + mesh.v_vel(i, j)) +
+    j_y(1, 1) = -0.25 * (mesh.v_vel(i, j + 1) + mesh.v_vel(i, j)) -
                 1.0 / (boundaries().reynolds() * mesh.dy());
-    j_y(1, 2) = 0.25 * (mesh.u_vel(i + 1, j) + mesh.u_vel(i, j));
+    j_y(1, 2) = -0.25 * (mesh.u_vel(i + 1, j) + mesh.u_vel(i, j));
 
-    j_y(2, 0) = 0.5;
+    j_y(2, 0) = -0.5;
     j_y(2, 1) = 0.0;
-    j_y(2, 2) = 0.5 * (mesh.v_vel(i, j + 1) + mesh.v_vel(i, j)) +
+    j_y(2, 2) = -0.5 * (mesh.v_vel(i, j + 1) + mesh.v_vel(i, j)) -
                 1.0 / (boundaries().reynolds() * mesh.dy());
     return j_y;
   }
@@ -218,8 +220,8 @@ class [[nodiscard]] SecondOrderCentered {
     // This is the Jacobian of G_{i+1/2,j} wrt U_{i,j}
     Jacobian j_y(jacobian_y_base(mesh, i, j, time));
     const real deriv_term = 1.0 / (boundaries().reynolds() * mesh.dy());
-    j_y(1, 1) += deriv_term;
-    j_y(2, 2) += deriv_term;
+    j_y(1, 1) -= deriv_term;
+    j_y(2, 2) -= deriv_term;
     return j_y;
   }
 
@@ -230,8 +232,8 @@ class [[nodiscard]] SecondOrderCentered {
     // This is the Jacobian of G_{i+1/2,j} wrt U_{i+1,j}
     Jacobian j_y(jacobian_y_base(mesh, i, j, time));
     const real deriv_term = 1.0 / (boundaries().reynolds() * mesh.dy());
-    j_y(1, 1) -= deriv_term;
-    j_y(2, 2) -= deriv_term;
+    j_y(1, 1) += deriv_term;
+    j_y(2, 2) += deriv_term;
     return j_y;
   }
 
