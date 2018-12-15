@@ -201,13 +201,18 @@ class [[nodiscard]] SecondOrderCentered {
     j_y(0, 1) = 0.0;
     j_y(0, 2) = -0.5 / boundaries().beta();
 
+    const real u_here  = boundaries().u_vel_at(mesh, time, i, j);
+    const real u_above = boundaries().u_vel_at(mesh, time, i, j + 1);
+    const real v_here  = boundaries().v_vel_at(mesh, time, i, j);
+    const real v_above = boundaries().v_vel_at(mesh, time, i, j + 1);
+
     j_y(1, 0) = 0.0;
-    j_y(1, 1) = -0.25 * (mesh.v_vel(i, j + 1) + mesh.v_vel(i, j));
-    j_y(1, 2) = -0.25 * (mesh.u_vel(i, j + 1) + mesh.u_vel(i, j));
+    j_y(1, 1) = -0.25 * (v_above + v_here);
+    j_y(1, 2) = -0.25 * (u_above + u_here);
 
     j_y(2, 0) = -0.5;
     j_y(2, 1) = 0.0;
-    j_y(2, 2) = -0.5 * (mesh.v_vel(i, j + 1) + mesh.v_vel(i, j));
+    j_y(2, 2) = -0.5 * (v_above + v_here);
     return j_y;
   }
 
