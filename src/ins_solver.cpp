@@ -88,21 +88,34 @@ py::class_<Mesh<ctrl_x, ctrl_y>> def_mesh(py::module &module) {
     return a;
   });
 
-  using SpaceAssembly = INSAssembly<SecondOrderCentered<BConds_Part1>>;
-  using RK1           = RK1_Solver<MeshT, SpaceAssembly>;
+  using SpaceDisc   = SecondOrderCentered<BConds_Part1>;
+  using Base_Solver = Base_Solver<MeshT, SpaceDisc>;
+  ss.str("");
+  ss << "Base_" << ctrl_x << "x" << ctrl_y;
+  py::class_<Base_Solver> base(module, ss.str().c_str());
+  base.def(py::init<const BConds_Part1 &>(), py::arg("boundaries"))
+      .def("time", &Base_Solver::time)
+      .def("space_assembly", &Base_Solver::space_assembly)
+      .def("mesh", (const MeshT &(Base_Solver::*)() const) & Base_Solver::mesh)
+      .def("mesh", (MeshT & (Base_Solver::*)()) & Base_Solver::mesh);
+  using RK1 = RK1_Solver<MeshT, SpaceDisc>;
   ss.str("");
   ss << "RK1_" << ctrl_x << "x" << ctrl_y;
-  py::class_<RK1> rk1(module, ss.str().c_str());
-  rk1.def(py::init<const BConds_Part1 &>(), py::arg("boundaries"),
-          py::return_value_policy::reference)
-      .def("timestep", (void (RK1::*)(real)) & RK1::timestep)
-      .def("time", (real(RK1::*)()) & RK1::time)
-      .def("mesh", (MeshT & (RK1::*)()) & RK1::mesh)
-      .def("space_assembly", (SpaceAssembly & (RK1::*)()) & RK1::space_assembly,
-           py::return_value_policy::reference_internal);
-  // The reference_internal rvp indicates the reference's lifetime is tied to
-  // the timestep object. Basically it indicates I shouldn't have mixed static
-  // and dynamic polymorphism at this level...
+  py::class_<RK1, Base_Solver> rk1(module, ss.str().c_str());
+  rk1.def(py::init<const BConds_Part1 &>(), py::arg("boundaries"))
+      .def("timestep", &RK1::timestep);
+  using RK4 = RK4_Solver<MeshT, SpaceDisc>;
+  ss.str("");
+  ss << "RK4_" << ctrl_x << "x" << ctrl_y;
+  py::class_<RK4, Base_Solver> rk4(module, ss.str().c_str());
+  rk4.def(py::init<const BConds_Part1 &>(), py::arg("boundaries"))
+      .def("timestep", &RK4::timestep);
+  using IE = ImplicitEuler_Solver<MeshT, SpaceDisc>;
+  ss.str("");
+  ss << "IE_" << ctrl_x << "x" << ctrl_y;
+  py::class_<IE, Base_Solver> ie(module, ss.str().c_str());
+  ie.def(py::init<const BConds_Part1 &>(), py::arg("boundaries"))
+      .def("timestep", &IE::timestep);
   return mesh;
 }
 
