@@ -77,6 +77,94 @@ class BConds_Base {
 // du/dt + d(u^2)/dx + d(uv)/dy = (d^2u/dx^2 + d^2u/dy^2) / Re - dP/dx
 // dv/dt + d(uv)/dx + d(v^2)/dy = (d^2v/dx^2 + d^2v/dy^2) / Re - dP/dy
 
+class BConds_Part3 : public BConds_Base<BConds_Part3> {
+ public:
+  [[nodiscard]] real pressure_initial(const real x, const real y) const
+      noexcept {
+    return P_0() * std::cos(pi * x) * std::cos(pi * y);
+  }
+
+  [[nodiscard]] real u_vel_initial(const real x, const real y) const noexcept {
+    return u_0() * std::sin(pi * x) * std::sin(2.0 * pi * y);
+  }
+
+  [[nodiscard]] real v_vel_initial(const real x, const real y) const noexcept {
+    return v_0() * std::sin(2.0 * pi * x) * std::sin(pi * y);
+  }
+
+  template <typename MeshT>
+  std::pair<int, int> boundary_coord(const MeshT &mesh, const int i,
+                                     const int j) {
+    int i_edge = i;
+    int j_edge = j;
+    if(i == -1) {
+      i_edge = 0;
+    } else if(i == mesh.x_dim()) {
+      i_edge -= 1;
+    } else if(j == -1) {
+      j_edge = 0;
+    } else {
+      j_edge -= 1;
+    }
+    return {i_edge, j_edge};
+  }
+
+  // Boundary Conditions:
+  // At left and right boundaries
+  // dP/dx = 0.0
+  // u_left = u_right = 0.0
+  // v_left = v_right = 0.0
+  // At the bottom boundary
+  // dP/dy = 0.0
+  // u = 0.0
+  // v = 0.0
+  // At the top boundary
+  // dP/dy = 0.0
+  // u = u_wall
+  // v = 0.0
+
+  template <typename MeshT>
+  [[nodiscard]] constexpr real pressure_at(const MeshT &mesh, const real time,
+                                           const int i, const int j) const
+      noexcept {
+    const auto [i_edge, j_edge] = boundary_coord(mesh, i, j);
+    return mesh.press(i_edge, j_edge);
+  }
+
+  template <typename MeshT>
+  [[nodiscard]] constexpr real u_vel_at(const MeshT &mesh, const real time,
+                                        const int i, const int j) const
+      noexcept {
+    const auto [i_edge, j_edge] = boundary_coord(mesh, i, j);
+    if(j == mesh.y_dim()) {
+      return 2.0 * _wall_vel - mesh.u_vel(i_edge, j_edge);
+    } else {
+      return -mesh.u_vel(i_edge, j_edge);
+    }
+  }
+
+  template <typename MeshT>
+  [[nodiscard]] constexpr real v_vel_at(const MeshT &mesh, const real time,
+                                        const int i, const int j) const
+      noexcept {
+    const auto [i_edge, j_edge] = boundary_coord(mesh, i, j);
+    return -mesh.v_vel(i_edge, j_edge);
+  }
+
+  constexpr BConds_Part3(const real wall_vel, const real P_0, const real u_0,
+                         const real v_0, const real beta, const real reynolds,
+                         const real x_min = 0.0, const real x_max = 1.0,
+                         const real y_min = 0.0, const real y_max = 1.0)
+      : BConds_Base(P_0, u_0, v_0, beta, reynolds, x_min, x_max, y_min, y_max),
+        _wall_vel(wall_vel) {}
+
+  constexpr BConds_Part3(const BConds_Part3 &src)
+      : BConds_Base(src), _wall_vel(src._wall_vel) {}
+
+ protected:
+  real _wall_vel;
+};
+
 class BConds_Part1 : public BConds_Base<BConds_Part1> {
  public:
   // P = P_0 \cos(\pi x) \sin(\pi y)

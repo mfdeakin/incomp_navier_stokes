@@ -147,13 +147,7 @@ py::class_<BCond> def_bcond(py::module &module, const std::string &name) {
       .def("init_mesh", (void (BCond::*)(Mesh<80, 80> &)) &
                             BCond::template init_mesh<Mesh<80, 80>>)
       .def("init_mesh", (void (BCond::*)(Mesh<160, 160> &)) &
-                            BCond::template init_mesh<Mesh<160, 160>>)
-      .def("flux_soln", &BCond::template flux_int_fill<Mesh<10, 10>>)
-      .def("flux_soln", &BCond::template flux_int_fill<Mesh<20, 20>>)
-      .def("flux_soln", &BCond::template flux_int_fill<Mesh<40, 40>>)
-      .def("flux_soln", &BCond::template flux_int_fill<Mesh<80, 80>>)
-      .def("flux_soln", &BCond::template flux_int_fill<Mesh<160, 160>>)
-      .def("flux_soln", &BCond::template flux_int_fill<Mesh<1024, 1024>>);
+                            BCond::template init_mesh<Mesh<160, 160>>);
 
   return bc;
 }
@@ -256,10 +250,18 @@ PYBIND11_MODULE(ins_solver, module) {
   def_multivar(module);
 
   def_bcond<BConds_Part1>(module, "BConds_Part1")
+      .def("flux_soln", &BConds_Part1::template flux_int_fill<Mesh<10, 10>>)
+      .def("flux_soln", &BConds_Part1::template flux_int_fill<Mesh<20, 20>>)
+      .def("flux_soln", &BConds_Part1::template flux_int_fill<Mesh<40, 40>>)
+      .def("flux_soln", &BConds_Part1::template flux_int_fill<Mesh<80, 80>>)
+      .def("flux_soln", &BConds_Part1::template flux_int_fill<Mesh<160, 160>>)
+      .def("flux_soln", &BConds_Part1::template flux_int_fill<Mesh<1024, 1024>>)
       .def("u", &BConds_Part1::u)
       .def("v", &BConds_Part1::v)
       .def("solution", &BConds_Part1::solution)
       .def("flux_int_solution", &BConds_Part1::flux_int_solution);
+
+  def_bcond<BConds_Part3>(module, "BConds_Part3");
 
   def_mesh<10, 10>(module);
   def_mesh<20, 20>(module);
