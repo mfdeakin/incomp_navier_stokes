@@ -88,66 +88,84 @@ py::class_<Mesh<ctrl_x, ctrl_y>> def_mesh(py::module &module) {
     return a;
   });
 
-  using SpaceDisc   = SecondOrderCentered<BConds_Part1>;
-  using Base_Solver = Base_Solver<MeshT, SpaceDisc>;
+  using SpaceDisc     = SecondOrderCentered<BConds_Part1>;
+  using Base_Solver_1 = Base_Solver<MeshT, SpaceDisc>;
   ss.str("");
-  ss << "Base_" << ctrl_x << "x" << ctrl_y;
-  py::class_<Base_Solver> base(module, ss.str().c_str());
-  base.def(py::init<const BConds_Part1 &>(), py::arg("boundaries"))
-      .def("time", &Base_Solver::time)
-      .def("space_assembly", &Base_Solver::space_assembly)
-      .def("mesh", (const MeshT &(Base_Solver::*)() const) & Base_Solver::mesh)
-      .def("mesh", (MeshT & (Base_Solver::*)()) & Base_Solver::mesh);
+  ss << "Base_1_" << ctrl_x << "x" << ctrl_y;
+  py::class_<Base_Solver_1> base_1(module, ss.str().c_str());
+  base_1.def(py::init<const BConds_Part1 &>(), py::arg("boundaries"))
+      .def("time", &Base_Solver_1::time)
+      .def("space_assembly", &Base_Solver_1::space_assembly)
+      .def("mesh",
+           (const MeshT &(Base_Solver_1::*)() const) & Base_Solver_1::mesh)
+      .def("mesh", (MeshT & (Base_Solver_1::*)()) & Base_Solver_1::mesh);
+
+
   using RK1 = RK1_Solver<MeshT, SpaceDisc>;
   ss.str("");
   ss << "RK1_" << ctrl_x << "x" << ctrl_y;
-  py::class_<RK1, Base_Solver> rk1(module, ss.str().c_str());
+  py::class_<RK1, Base_Solver_1> rk1(module, ss.str().c_str());
   rk1.def(py::init<const BConds_Part1 &>(), py::arg("boundaries"))
       .def("timestep", &RK1::timestep);
+
   using RK4 = RK4_Solver<MeshT, SpaceDisc>;
   ss.str("");
   ss << "RK4_" << ctrl_x << "x" << ctrl_y;
-  py::class_<RK4, Base_Solver> rk4(module, ss.str().c_str());
+  py::class_<RK4, Base_Solver_1> rk4(module, ss.str().c_str());
   rk4.def(py::init<const BConds_Part1 &>(), py::arg("boundaries"))
       .def("timestep", &RK4::timestep);
-  using IE = ImplicitEuler_Solver<MeshT, SpaceDisc>;
+
+  using SpaceDisc3    = SecondOrderCentered<BConds_Part3>;
+  using Base_Solver_3 = Base_Solver<MeshT, SpaceDisc3>;
+  ss.str("");
+  ss << "Base_3_" << ctrl_x << "x" << ctrl_y;
+  py::class_<Base_Solver_3> base_3(module, ss.str().c_str());
+  base_3.def(py::init<const BConds_Part3 &>(), py::arg("boundaries"))
+      .def("time", &Base_Solver_3::time)
+      .def("space_assembly", &Base_Solver_3::space_assembly)
+      .def("mesh",
+           (const MeshT &(Base_Solver_3::*)() const) & Base_Solver_3::mesh)
+      .def("mesh", (MeshT & (Base_Solver_3::*)()) & Base_Solver_3::mesh);
+
+  using IE = ImplicitEuler_Solver<MeshT, SpaceDisc3>;
   ss.str("");
   ss << "IE_" << ctrl_x << "x" << ctrl_y;
-  py::class_<IE, Base_Solver> ie(module, ss.str().c_str());
-  ie.def(py::init<const BConds_Part1 &>(), py::arg("boundaries"))
+  py::class_<IE, Base_Solver_3> ie(module, ss.str().c_str());
+  ie.def(py::init<const BConds_Part3 &>(), py::arg("boundaries"))
       .def("timestep", &IE::timestep);
   return mesh;
 }
 
 template <typename BCond>
 py::class_<BCond> def_bcond(py::module &module, const std::string &name) {
-  py::class_<BCond> bc(module, name.c_str());
+  py::class_<BConds_Base<BCond>> bc_base(module, ("base" + name).c_str());
+  bc_base
+      .def(py::init<real, real, real, real, real, real, real, real, real>(),
+           py::arg("P_0") = 1.0, py::arg("u_0") = 1.0, py::arg("v_0") = 1.0,
+           py::arg("beta") = 1.0, py::arg("reynolds") = 1.0,
+           py::arg("x_min") = 0.0, py::arg("x_max") = 1.0,
+           py::arg("y_min") = 0.0, py::arg("y_max") = 1.0)
+      .def("x_min", &BCond::x_min)
+      .def("x_max", &BCond::x_max)
+      .def("y_min", &BCond::y_min)
+      .def("y_max", &BCond::y_max)
+      .def("initial_conds", &BCond::initial_conds)
+      .def("P_0", &BCond::P_0)
+      .def("u_0", &BCond::u_0)
+      .def("v_0", &BCond::v_0)
+      .def("beta", &BCond::beta)
+      .def("init_mesh", &BCond::template init_mesh<Mesh<10, 10>>)
+      .def("init_mesh", &BCond::template init_mesh<Mesh<20, 20>>)
+      .def("init_mesh", &BCond::template init_mesh<Mesh<40, 40>>)
+      .def("init_mesh", &BCond::template init_mesh<Mesh<80, 80>>)
+      .def("init_mesh", &BCond::template init_mesh<Mesh<160, 160>>);
+
+  py::class_<BCond, BConds_Base<BCond>> bc(module, name.c_str());
   bc.def(py::init<real, real, real, real, real, real, real, real, real>(),
          py::arg("P_0") = 1.0, py::arg("u_0") = 1.0, py::arg("v_0") = 1.0,
          py::arg("beta") = 1.0, py::arg("reynolds") = 1.0,
          py::arg("x_min") = 0.0, py::arg("x_max") = 1.0, py::arg("y_min") = 0.0,
-         py::arg("y_max") = 1.0)
-      .def("x_min", (real(BCond::*)()) & BCond::x_min)
-      .def("x_max", (real(BCond::*)()) & BCond::x_max)
-      .def("y_min", (real(BCond::*)()) & BCond::y_min)
-      .def("y_max", (real(BCond::*)()) & BCond::y_max)
-      .def("initial_conds",
-           (std::tuple<real, real, real>(BCond::*)(real, real, real, real)) &
-               BCond::initial_conds)
-      .def("P_0", (real(BCond::*)()) & BCond::P_0)
-      .def("u_0", (real(BCond::*)()) & BCond::u_0)
-      .def("v_0", (real(BCond::*)()) & BCond::v_0)
-      .def("beta", (real(BCond::*)()) & BCond::beta)
-      .def("init_mesh", (void (BCond::*)(Mesh<10, 10> &)) &
-                            BCond::template init_mesh<Mesh<10, 10>>)
-      .def("init_mesh", (void (BCond::*)(Mesh<20, 20> &)) &
-                            BCond::template init_mesh<Mesh<20, 20>>)
-      .def("init_mesh", (void (BCond::*)(Mesh<40, 40> &)) &
-                            BCond::template init_mesh<Mesh<40, 40>>)
-      .def("init_mesh", (void (BCond::*)(Mesh<80, 80> &)) &
-                            BCond::template init_mesh<Mesh<80, 80>>)
-      .def("init_mesh", (void (BCond::*)(Mesh<160, 160> &)) &
-                            BCond::template init_mesh<Mesh<160, 160>>);
+         py::arg("y_max") = 1.0);
 
   return bc;
 }
