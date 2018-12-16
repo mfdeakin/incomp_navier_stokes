@@ -58,6 +58,14 @@ class triple : public ND_Array<real, 3> {
     return get<0>() + get<1>() + get<2>();
   }
 
+  [[nodiscard]] constexpr real l2_norm() const noexcept {
+    real sum = 0.0;
+    for(int i = 0; i < this->extent(0); i++) {
+      sum += (*this)(i) * (*this)(i);
+    }
+    return sum;
+  }
+
   constexpr triple &operator+=(const triple &rhs) noexcept {
     for(int i = 0; i < 3; i++) {
       (*this)(i) += rhs(i);
@@ -224,13 +232,13 @@ class Jacobian : public ND_Array<triple, 3> {
 
   constexpr Jacobian operator*=(const Jacobian rhs) noexcept {
     for(int r = 0; r < this->extent(0); r++) {
-			triple new_row;
+      triple new_row;
       for(int c = 0; c < this->extent(1); c++) {
-				new_row(c) = (row(r) * rhs.column(c)).sum();
+        new_row(c) = (row(r) * rhs.column(c)).sum();
       }
-			for(int c = 0; c < this->extent(1); c++) {
-				get(r, c) = new_row(c);
-			}
+      for(int c = 0; c < this->extent(1); c++) {
+        get(r, c) = new_row(c);
+      }
     }
     return *this;
   }
@@ -280,32 +288,31 @@ class Jacobian : public ND_Array<triple, 3> {
   [[nodiscard]] constexpr Jacobian inverse() const noexcept {
     Jacobian inv;
     assert(det() != 0.0);
-    const real d = 1.0 / det();
-		real cofactor = 1.0;
+    const real d  = 1.0 / det();
+    real cofactor = 1.0;
     for(int i = 0; i < inv.extent(1); i++) {
-			if(i % 2 == 1) {
-				cofactor = -1.0;
-			}
-			else {
-				cofactor = 1.0;
-			}
+      if(i % 2 == 1) {
+        cofactor = -1.0;
+      } else {
+        cofactor = 1.0;
+      }
       for(int j = 0; j < inv.extent(0); j++) {
         inv(j, i) = cofactor * d * minor(i, j);
-				cofactor *= -1.0;
+        cofactor *= -1.0;
       }
     }
     return inv;
   }
 
-	[[nodiscard]] constexpr Jacobian minors() const noexcept {
-		Jacobian M;
-		for(int r = 0; r < this->extent(0); r++) {
-			for(int c = 0; c < this->extent(1); c++) {
-				M(r, c) = minor(r, c);
-			}
-		}
-		return M;
-	}
+  [[nodiscard]] constexpr Jacobian minors() const noexcept {
+    Jacobian M;
+    for(int r = 0; r < this->extent(0); r++) {
+      for(int c = 0; c < this->extent(1); c++) {
+        M(r, c) = minor(r, c);
+      }
+    }
+    return M;
+  }
 
   [[nodiscard]] constexpr real minor(const int r, const int c) const noexcept {
     const auto indices = [](const int omit) {
