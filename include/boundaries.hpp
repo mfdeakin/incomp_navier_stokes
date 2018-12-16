@@ -94,7 +94,7 @@ class BConds_Part3 : public BConds_Base<BConds_Part3> {
 
   template <typename MeshT>
   std::pair<int, int> boundary_coord(const MeshT &mesh, const int i,
-                                     const int j) {
+                                     const int j) const noexcept {
     int i_edge = i;
     int j_edge = j;
     if(i == -1) {
