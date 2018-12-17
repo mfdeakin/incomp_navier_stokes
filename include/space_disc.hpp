@@ -113,22 +113,22 @@ class [[nodiscard]] SecondOrderCentered {
       const noexcept {
     Jacobian j_x;
     j_x(0, 0) = 0.0;
-    j_x(0, 1) = -0.5 / boundaries().beta();
+    j_x(0, 1) = 0.5 / boundaries().beta();
     j_x(0, 2) = 0.0;
 
     const real u_here  = boundaries().u_vel_at(mesh, time, i, j);
     const real u_right = boundaries().u_vel_at(mesh, time, i + 1, j);
 
-    j_x(1, 0) = -0.5;
-    j_x(1, 1) = -0.5 * (u_right + u_here);
+    j_x(1, 0) = 0.5;
+    j_x(1, 1) = 0.5 * (u_right + u_here);
     j_x(1, 2) = 0.0;
 
     const real v_here  = boundaries().v_vel_at(mesh, time, i, j);
     const real v_right = boundaries().v_vel_at(mesh, time, i + 1, j);
 
     j_x(2, 0) = 0.0;
-    j_x(2, 1) = -0.25 * (v_right + v_here);
-    j_x(2, 2) = -0.25 * (u_right + u_here);
+    j_x(2, 1) = 0.25 * (v_right + v_here);
+    j_x(2, 2) = 0.25 * (u_right + u_here);
     return j_x;
   }
 
@@ -139,8 +139,8 @@ class [[nodiscard]] SecondOrderCentered {
     // This is the Jacobian of F_{i+1/2,j} wrt U_{i,j}
     Jacobian b_x(jacobian_x_base(mesh, i, j, time));
     const real deriv_term = 1.0 / (boundaries().reynolds() * mesh.dx());
-    b_x(1, 1) -= deriv_term;
-    b_x(2, 2) -= deriv_term;
+    b_x(1, 1) += deriv_term;
+    b_x(2, 2) += deriv_term;
     return b_x;
   }
 
@@ -151,8 +151,8 @@ class [[nodiscard]] SecondOrderCentered {
     // This is the Jacobian of F_{i+1/2,j} wrt U_{i+1,j}
     Jacobian b_x(jacobian_x_base(mesh, i, j, time));
     const real deriv_term = 1.0 / (boundaries().reynolds() * mesh.dx());
-    b_x(1, 1) += deriv_term;
-    b_x(2, 2) += deriv_term;
+    b_x(1, 1) -= deriv_term;
+    b_x(2, 2) -= deriv_term;
     return b_x;
   }
 
@@ -166,11 +166,7 @@ class [[nodiscard]] SecondOrderCentered {
   [[nodiscard]] constexpr Jacobian Dx_p1(const MeshT &mesh, const int i,
                                          const int j, const real time)
       const noexcept {
-    if(i < mesh.x_dim() - 1) {
-      return jacobian_x_p1(mesh, i, j, time) * (1.0 / mesh.dx());
-    } else {
-      return Jacobian(Jacobian::ZeroTag());
-    }
+    return jacobian_x_p1(mesh, i, j, time) * (1.0 / mesh.dx());
   }
 
   // The B term of the system
@@ -188,11 +184,7 @@ class [[nodiscard]] SecondOrderCentered {
   [[nodiscard]] constexpr Jacobian Dx_m1(const MeshT &mesh, const int i,
                                          const int j, const real time)
       const noexcept {
-    if(i > 0) {
-      return jacobian_x_0(mesh, i - 1, j, time) * (-1.0 / mesh.dx());
-    } else {
-      return Jacobian(Jacobian::ZeroTag());
-    }
+    return jacobian_x_0(mesh, i - 1, j, time) * (-1.0 / mesh.dx());
   }
 
   template <typename MeshT>
@@ -202,7 +194,7 @@ class [[nodiscard]] SecondOrderCentered {
     Jacobian j_y;
     j_y(0, 0) = 0.0;
     j_y(0, 1) = 0.0;
-    j_y(0, 2) = -0.5 / boundaries().beta();
+    j_y(0, 2) = 0.5 / boundaries().beta();
 
     const real u_here  = boundaries().u_vel_at(mesh, time, i, j);
     const real u_above = boundaries().u_vel_at(mesh, time, i, j + 1);
@@ -210,12 +202,12 @@ class [[nodiscard]] SecondOrderCentered {
     const real v_above = boundaries().v_vel_at(mesh, time, i, j + 1);
 
     j_y(1, 0) = 0.0;
-    j_y(1, 1) = -0.25 * (v_above + v_here);
-    j_y(1, 2) = -0.25 * (u_above + u_here);
+    j_y(1, 1) = 0.25 * (v_above + v_here);
+    j_y(1, 2) = 0.25 * (u_above + u_here);
 
-    j_y(2, 0) = -0.5;
+    j_y(2, 0) = 0.5;
     j_y(2, 1) = 0.0;
-    j_y(2, 2) = -0.5 * (v_above + v_here);
+    j_y(2, 2) = 0.5 * (v_above + v_here);
     return j_y;
   }
 
@@ -226,8 +218,8 @@ class [[nodiscard]] SecondOrderCentered {
     // This is the Jacobian of G_{i+1/2,j} wrt U_{i,j}
     Jacobian j_y(jacobian_y_base(mesh, i, j, time));
     const real deriv_term = 1.0 / (boundaries().reynolds() * mesh.dy());
-    j_y(1, 1) -= deriv_term;
-    j_y(2, 2) -= deriv_term;
+    j_y(1, 1) += deriv_term;
+    j_y(2, 2) += deriv_term;
     return j_y;
   }
 
@@ -238,8 +230,8 @@ class [[nodiscard]] SecondOrderCentered {
     // This is the Jacobian of G_{i+1/2,j} wrt U_{i+1,j}
     Jacobian j_y(jacobian_y_base(mesh, i, j, time));
     const real deriv_term = 1.0 / (boundaries().reynolds() * mesh.dy());
-    j_y(1, 1) += deriv_term;
-    j_y(2, 2) += deriv_term;
+    j_y(1, 1) -= deriv_term;
+    j_y(2, 2) -= deriv_term;
     return j_y;
   }
 
