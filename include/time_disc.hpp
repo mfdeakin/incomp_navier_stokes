@@ -146,7 +146,10 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceDisc> {
     }
     for(int j = 0; j < MeshT::y_dim(); j++) {
       for(int i = 0; i < MeshT::x_dim(); i++) {
-        // We need to offset the matrix x values for the ghost cells
+        // We need to offset the x values for the ghost cells
+        sol_dx_mesh(j, i + 1) =
+            space_assembly.flux_integral(mesh, i, j, this->time()) * dt;
+
         dx_mesh(j, i + 1, 0) =
             space_assembly.Dx_m1(mesh, i, j, this->time()) * dt;
         dx_mesh(j, i + 1, 1) =
@@ -156,6 +159,9 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceDisc> {
             space_assembly.Dx_p1(mesh, i, j, this->time()) * dt;
       }
     }
+
+    // Up to here, sol_dx is correct and solve_thomas is correct
+    // Need to understand why dx is wrong
 
     solve_thomas(dx, sol_dx);
     MtxY &dy          = *_dy;
@@ -208,16 +214,16 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceDisc> {
 
     real max_change = 0.0;
 
-    // sol now contains our dP terms
-    // So just add it to our P terms
+    // sol now contains our dP, du, and dv terms
+    // So just add it to our P, u, and v terms
     // Recall that our sol_mesh is transposed, so we need to swap the indices
     // used for it
     for(int i = 0; i < MeshT::x_dim(); i++) {
       for(int j = 0; j < MeshT::y_dim(); j++) {
         max_change = std::max(max_change, sol_dy_mesh(i, j + 1).l2_norm());
-        this->_cur_mesh->press(i, j) -= sol_dy_mesh(i, j + 1)(0);
-        this->_cur_mesh->u_vel(i, j) -= sol_dy_mesh(i, j + 1)(1);
-        this->_cur_mesh->v_vel(i, j) -= sol_dy_mesh(i, j + 1)(2);
+        this->_cur_mesh->press(i, j) += sol_dy_mesh(i, j + 1)(0);
+        this->_cur_mesh->u_vel(i, j) += sol_dy_mesh(i, j + 1)(1);
+        this->_cur_mesh->v_vel(i, j) += sol_dy_mesh(i, j + 1)(2);
       }
     }
 
