@@ -93,20 +93,22 @@ class BConds_Part3 : public BConds_Base<BConds_Part3> {
   }
 
   template <typename MeshT>
-  std::pair<int, int> boundary_coord(const MeshT &mesh, const int i,
-                                     const int j) const noexcept {
-    int i_edge = i;
-    int j_edge = j;
+  std::tuple<bool, int, int> boundary_coord(const MeshT &mesh, const int i,
+                                            const int j) const noexcept {
+    int i_edge      = i;
+    int j_edge      = j;
     if(i == -1) {
       i_edge = 0;
     } else if(i == mesh.x_dim()) {
       i_edge -= 1;
-    } else if(j == -1) {
+    }
+		if(j == -1) {
       j_edge = 0;
-    } else {
+    } else if(j == mesh.y_dim()) {
       j_edge -= 1;
     }
-    return {i_edge, j_edge};
+		const bool ghost_cell = !(i == i_edge && j == j_edge);
+    return {ghost_cell, i_edge, j_edge};
   }
 
   // Boundary Conditions:
@@ -127,7 +129,7 @@ class BConds_Part3 : public BConds_Base<BConds_Part3> {
   [[nodiscard]] constexpr real pressure_at(const MeshT &mesh, const real time,
                                            const int i, const int j) const
       noexcept {
-    const auto [i_edge, j_edge] = boundary_coord(mesh, i, j);
+    const auto [ghost_cell, i_edge, j_edge] = boundary_coord(mesh, i, j);
     return mesh.press(i_edge, j_edge);
   }
 
@@ -135,11 +137,13 @@ class BConds_Part3 : public BConds_Base<BConds_Part3> {
   [[nodiscard]] constexpr real u_vel_at(const MeshT &mesh, const real time,
                                         const int i, const int j) const
       noexcept {
-    const auto [i_edge, j_edge] = boundary_coord(mesh, i, j);
+    const auto [ghost_cell, i_edge, j_edge] = boundary_coord(mesh, i, j);
     if(j == mesh.y_dim()) {
       return 2.0 * _wall_vel - mesh.u_vel(i_edge, j_edge);
-    } else {
+    } else if(ghost_cell) {
       return -mesh.u_vel(i_edge, j_edge);
+    } else {
+      return mesh.u_vel(i, j);
     }
   }
 
@@ -147,8 +151,12 @@ class BConds_Part3 : public BConds_Base<BConds_Part3> {
   [[nodiscard]] constexpr real v_vel_at(const MeshT &mesh, const real time,
                                         const int i, const int j) const
       noexcept {
-    const auto [i_edge, j_edge] = boundary_coord(mesh, i, j);
-    return -mesh.v_vel(i_edge, j_edge);
+    const auto [ghost_cell, i_edge, j_edge] = boundary_coord(mesh, i, j);
+    if(ghost_cell) {
+      return -mesh.v_vel(i_edge, j_edge);
+    } else {
+      return mesh.v_vel(i, j);
+    }
   }
 
   constexpr BConds_Part3(const real wall_vel, const real P_0, const real u_0,
