@@ -115,26 +115,39 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceDisc> {
     // [ ...   .     .               .   ] [     .     ]   [       .       ]
     //
     // This is an M*N x M*N matrix, where M = x_ctrl_vols + 2, N = y_ctrl_vols
+    // Since each strip of j and i values is completely independent after
+    // approximate factorization, we only consider them individually
     //
     SolVecX &sol_dx = *_sol_dx;
     SolVecY &sol_dy = *_sol_dy;
 
     MtxX &dx = *_dx;
 
+    constexpr real snan = std::numeric_limits<real>::signaling_NaN();
+
+    for(int i = 0; i < MeshT::x_dim(); i++) {
+      for(int j = 0; j < MeshT::x_dim(); j++) {
+        (*_intermediate)(i, j) = {snan, snan, snan};
+      }
+    }
+
     // Start in the X direction, with constant j
     for(int j = 0; j < MeshT::y_dim(); j++) {
       // Enforce our boundary conditions
-      // All of our boundary conditions require the walls to be non-porous
+      // All of our boundary conditions require the walls to be no slip
       sol_dx(0)             = 0.0;
       sol_dx(vec_x_dim - 1) = 0.0;
 
-      dx(0, 0) = Jacobian(Jacobian::ZeroTag());
-      dx(0, 1) = Jacobian(Jacobian::IdentityTag());
-      dx(0, 2) = Jacobian(Jacobian::IdentityTag());
+      dx(0, 0)       = Jacobian(Jacobian::NaNTag());  // Should never be used
+      dx(0, 1)       = Jacobian(Jacobian::IdentityTag());
+      dx(0, 2)       = Jacobian(Jacobian::IdentityTag());
+      dx(0, 1)(0, 0) = -1.0;
 
       dx(vec_x_dim - 1, 0) = Jacobian(Jacobian::IdentityTag());
       dx(vec_x_dim - 1, 1) = Jacobian(Jacobian::IdentityTag());
-      dx(vec_x_dim - 1, 2) = Jacobian(Jacobian::ZeroTag());
+      dx(vec_x_dim - 1, 2) =
+          Jacobian(Jacobian::NaNTag());  // Should never be used
+      dx(vec_x_dim - 1, 1)(0, 0) = -1.0;
 
       for(int i = 0; i < MeshT::x_dim(); i++) {
         // We need to offset the x values for the ghost cells
@@ -146,9 +159,6 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceDisc> {
                        space_assembly.Dx_0(mesh, i, j, this->time()) * dt;
         dx(i + 1, 2) = space_assembly.Dx_p1(mesh, i, j, this->time()) * dt;
       }
-
-      // Up to here, sol_dx is correct and solve_thomas is correct
-      // Need to understand why dx is wrong
 
       solve_thomas(dx, sol_dx);
 
@@ -162,13 +172,15 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceDisc> {
     for(int i = 0; i < MeshT::x_dim(); i++) {
       MtxY &dy = *_dy;
       // Enforce our boundary conditions
-      dy(0, 0) = Jacobian(Jacobian::ZeroTag());
-      dy(0, 1) = Jacobian(Jacobian::IdentityTag());
-      dy(0, 2) = Jacobian(Jacobian::IdentityTag());
+      dy(0, 0)       = Jacobian(Jacobian::NaNTag());
+      dy(0, 1)       = Jacobian(Jacobian::IdentityTag());
+      dy(0, 2)       = Jacobian(Jacobian::IdentityTag());
+      dy(0, 1)(0, 0) = -1.0;
 
-      dy(vec_y_dim - 1, 0) = Jacobian(Jacobian::IdentityTag());
-      dy(vec_y_dim - 1, 1) = Jacobian(Jacobian::IdentityTag());
-      dy(vec_y_dim - 1, 2) = Jacobian(Jacobian::ZeroTag());
+      dy(vec_y_dim - 1, 0)       = Jacobian(Jacobian::IdentityTag());
+      dy(vec_y_dim - 1, 1)       = Jacobian(Jacobian::IdentityTag());
+      dy(vec_y_dim - 1, 2)       = Jacobian(Jacobian::NaNTag());
+      dy(vec_y_dim - 1, 1)(0, 0) = -1.0;
 
       sol_dy(0)                  = 0.0;
       sol_dy(MeshT::y_dim() + 1) = 0.0;

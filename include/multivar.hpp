@@ -175,6 +175,7 @@ class Jacobian : public ND_Array<triple, 3> {
 
   struct ZeroTag {};
   struct IdentityTag {};
+  struct NaNTag {};
 
   constexpr Jacobian() : Base() {}
 
@@ -182,6 +183,14 @@ class Jacobian : public ND_Array<triple, 3> {
     for(int i = 0; i < this->extent(0); i++) {
       for(int j = 0; j < this->extent(1); j++) {
         (*this)(i, j) = 0.0;
+      }
+    }
+  }
+
+  constexpr Jacobian(const NaNTag &) : Base() {
+    for(int i = 0; i < this->extent(0); i++) {
+      for(int j = 0; j < this->extent(1); j++) {
+        (*this)(i, j) = std::numeric_limits<real>::signaling_NaN();
       }
     }
   }
