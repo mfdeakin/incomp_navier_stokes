@@ -239,11 +239,7 @@ class [[nodiscard]] SecondOrderCentered {
   template <typename MeshT>
   [[nodiscard]] constexpr Jacobian Dy_p1(const MeshT &mesh, int i, int j,
                                          const real time) const noexcept {
-    if(j < mesh.y_dim() - 1) {
-      return jacobian_y_p1(mesh, i, j, time) * (1.0 / mesh.dy());
-    } else {
-      return Jacobian(Jacobian::ZeroTag());
-    }
+    return jacobian_y_p1(mesh, i, j, time) * (1.0 / mesh.dy());
   }
 
   // The B term of the system
@@ -261,11 +257,7 @@ class [[nodiscard]] SecondOrderCentered {
   [[nodiscard]] constexpr Jacobian Dy_m1(const MeshT &mesh, const int i,
                                          const int j, const real time)
       const noexcept {
-    if(j > 0) {
-      return jacobian_y_0(mesh, i, j - 1, time) * (-1.0 / mesh.dy());
-    } else {
-      return Jacobian(Jacobian::ZeroTag());
-    }
+    return jacobian_y_0(mesh, i, j - 1, time) * (-1.0 / mesh.dy());
   }
 
   template <typename MeshT, typename Get>
