@@ -100,7 +100,6 @@ py::class_<Mesh<ctrl_x, ctrl_y>> def_mesh(py::module &module) {
            (const MeshT &(Base_Solver_1::*)() const) & Base_Solver_1::mesh)
       .def("mesh", (MeshT & (Base_Solver_1::*)()) & Base_Solver_1::mesh);
 
-
   using RK1 = RK1_Solver<MeshT, SpaceDisc>;
   ss.str("");
   ss << "RK1_" << ctrl_x << "x" << ctrl_y;
@@ -161,11 +160,6 @@ py::class_<BCond> def_bcond(py::module &module, const std::string &name) {
       .def("init_mesh", &BCond::template init_mesh<Mesh<160, 160>>);
 
   py::class_<BCond, BConds_Base<BCond>> bc(module, name.c_str());
-  bc.def(py::init<real, real, real, real, real, real, real, real, real>(),
-         py::arg("P_0") = 1.0, py::arg("u_0") = 1.0, py::arg("v_0") = 1.0,
-         py::arg("beta") = 1.0, py::arg("reynolds") = 1.0,
-         py::arg("x_min") = 0.0, py::arg("x_max") = 1.0, py::arg("y_min") = 0.0,
-         py::arg("y_max") = 1.0);
 
   return bc;
 }
@@ -192,7 +186,6 @@ std::pair<py::class_<triple>, py::class_<Jacobian>> def_multivar(
       .def(py::self += py::self)
       .def(py::self - py::self)
       .def(py::self -= py::self)
-      .def(py::self += py::self)
       .def(py::self * py::self)
       .def(py::self * real())
       .def(real() * py::self)
@@ -268,6 +261,11 @@ PYBIND11_MODULE(ins_solver, module) {
   def_multivar(module);
 
   def_bcond<BConds_Part1>(module, "BConds_Part1")
+      .def(py::init<real, real, real, real, real, real, real, real, real>(),
+           py::arg("P_0") = 1.0, py::arg("u_0") = 1.0, py::arg("v_0") = 1.0,
+           py::arg("beta") = 1.0, py::arg("reynolds") = 1.0,
+           py::arg("x_min") = 0.0, py::arg("x_max") = 1.0,
+           py::arg("y_min") = 0.0, py::arg("y_max") = 1.0)
       .def("flux_soln", &BConds_Part1::template flux_int_fill<Mesh<10, 10>>)
       .def("flux_soln", &BConds_Part1::template flux_int_fill<Mesh<20, 20>>)
       .def("flux_soln", &BConds_Part1::template flux_int_fill<Mesh<40, 40>>)
@@ -279,7 +277,14 @@ PYBIND11_MODULE(ins_solver, module) {
       .def("solution", &BConds_Part1::solution)
       .def("flux_int_solution", &BConds_Part1::flux_int_solution);
 
-  def_bcond<BConds_Part3>(module, "BConds_Part3");
+  def_bcond<BConds_Part3>(module, "BConds_Part3")
+      .def(py::init<real, real, real, real, real, real, real, real, real,
+                    real>(),
+           py::arg("wall_vel") = 0.0, py::arg("P_0") = 1.0,
+           py::arg("u_0") = 1.0, py::arg("v_0") = 1.0, py::arg("beta") = 1.0,
+           py::arg("reynolds") = 1.0, py::arg("x_min") = 0.0,
+           py::arg("x_max") = 1.0, py::arg("y_min") = 0.0,
+           py::arg("y_max") = 1.0);
 
   def_mesh<10, 10>(module);
   def_mesh<20, 20>(module);
