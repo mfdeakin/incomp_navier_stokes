@@ -57,34 +57,29 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceDisc> {
   using Base          = Base_Solver<MeshT, _SpaceDisc>;
   using BConds        = typename Base::BConds;
 
+  // Definitions used to solve the system
+
   // Assuming a second order space discretization...
   static constexpr int ghost_cells = 2;
 
-  // Definitions used to solve the system
-  using VecMeshX =
-      ND_Array<triple, MeshT::y_dim(), MeshT::x_dim() + ghost_cells>;
-  using VecMeshY =
-      ND_Array<triple, MeshT::x_dim(), MeshT::y_dim() + ghost_cells>;
-
-  static constexpr int vec_x_dim = VecMeshX::extent(0) * VecMeshX::extent(1);
-  static constexpr int vec_y_dim = VecMeshY::extent(0) * VecMeshY::extent(1);
+  static constexpr int vec_x_dim = MeshT::x_dim() + ghost_cells;
+  static constexpr int vec_y_dim = MeshT::y_dim() + ghost_cells;
 
   using SolVecX = ND_Array<triple, vec_x_dim>;
   using SolVecY = ND_Array<triple, vec_y_dim>;
 
+  using XYIntermediate = ND_Array<triple, MeshT::x_dim(), MeshT::y_dim()>;
+
   using MtxX = ND_Array<Jacobian, vec_x_dim, 3>;
   using MtxY = ND_Array<Jacobian, vec_y_dim, 3>;
-  using MtxXMesh =
-      ND_Array<Jacobian, VecMeshX::extent(0), VecMeshX::extent(1), 3>;
-  using MtxYMesh =
-      ND_Array<Jacobian, VecMeshY::extent(0), VecMeshY::extent(1), 3>;
 
   constexpr ImplicitEuler_Solver(const BConds &boundaries) noexcept
       : Base(boundaries),
         _dx(std::make_unique<MtxX>()),
         _dy(std::make_unique<MtxY>()),
         _sol_dx(std::make_unique<SolVecX>()),
-        _sol_dy(std::make_unique<SolVecY>()) {}
+        _sol_dy(std::make_unique<SolVecY>()),
+        _intermediate(std::make_unique<XYIntermediate>()) {}
 
   real timestep(const real dt) {
     const MeshT &mesh                   = this->mesh();
@@ -121,96 +116,79 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceDisc> {
     //
     // This is an M*N x M*N matrix, where M = x_ctrl_vols + 2, N = y_ctrl_vols
     //
-    SolVecX &sol_dx       = *_sol_dx;
-    VecMeshX &sol_dx_mesh = sol_dx.template reshape<VecMeshX>();
+    SolVecX &sol_dx = *_sol_dx;
+    SolVecY &sol_dy = *_sol_dy;
 
-    MtxX &dx          = *_dx;
-    MtxXMesh &dx_mesh = dx.template reshape<MtxXMesh>();
+    MtxX &dx = *_dx;
 
-    // Enforce our boundary conditions
-    // In the X direction,
+    // Start in the X direction, with constant j
     for(int j = 0; j < MeshT::y_dim(); j++) {
+      // Enforce our boundary conditions
       // All of our boundary conditions require the walls to be non-porous
-      sol_dx_mesh(j, 0)                  = 0.0;
-      sol_dx_mesh(j, MeshT::x_dim() + 1) = 0.0;
+      sol_dx(0)             = 0.0;
+      sol_dx(vec_x_dim - 1) = 0.0;
 
-      dx_mesh(j, 0, 0) = Jacobian(Jacobian::ZeroTag());
-      dx_mesh(j, 0, 1) = Jacobian(Jacobian::IdentityTag());
-      dx_mesh(j, 0, 2) = Jacobian(Jacobian::IdentityTag());
+      dx(0, 0) = Jacobian(Jacobian::ZeroTag());
+      dx(0, 1) = Jacobian(Jacobian::IdentityTag());
+      dx(0, 2) = Jacobian(Jacobian::IdentityTag());
 
-      dx_mesh(j, MtxXMesh::extent(1) - 1, 0) =
-          Jacobian(Jacobian::IdentityTag());
-      dx_mesh(j, MtxXMesh::extent(1) - 1, 1) =
-          Jacobian(Jacobian::IdentityTag());
-      dx_mesh(j, MtxXMesh::extent(1) - 1, 2) = Jacobian(Jacobian::ZeroTag());
-    }
-    for(int j = 0; j < MeshT::y_dim(); j++) {
+      dx(vec_x_dim - 1, 0) = Jacobian(Jacobian::IdentityTag());
+      dx(vec_x_dim - 1, 1) = Jacobian(Jacobian::IdentityTag());
+      dx(vec_x_dim - 1, 2) = Jacobian(Jacobian::ZeroTag());
+
       for(int i = 0; i < MeshT::x_dim(); i++) {
         // We need to offset the x values for the ghost cells
-        sol_dx_mesh(j, i + 1) =
+        sol_dx(i + 1) =
             space_assembly.flux_integral(mesh, i, j, this->time()) * dt;
 
-        dx_mesh(j, i + 1, 0) =
-            space_assembly.Dx_m1(mesh, i, j, this->time()) * dt;
-        dx_mesh(j, i + 1, 1) =
-            Jacobian(Jacobian::IdentityTag()) +
-            space_assembly.Dx_0(mesh, i, j, this->time()) * dt;
-        dx_mesh(j, i + 1, 2) =
-            space_assembly.Dx_p1(mesh, i, j, this->time()) * dt;
+        dx(i + 1, 0) = space_assembly.Dx_m1(mesh, i, j, this->time()) * dt;
+        dx(i + 1, 1) = Jacobian(Jacobian::IdentityTag()) +
+                       space_assembly.Dx_0(mesh, i, j, this->time()) * dt;
+        dx(i + 1, 2) = space_assembly.Dx_p1(mesh, i, j, this->time()) * dt;
+      }
+
+      // Up to here, sol_dx is correct and solve_thomas is correct
+      // Need to understand why dx is wrong
+
+      solve_thomas(dx, sol_dx);
+
+      XYIntermediate &inter = *_intermediate;
+      for(int i = 0; i < MeshT::x_dim(); i++) {
+        // Skip the ghost cell in the solution since it's not needed
+        inter(i, j) = sol_dx(i + 1);
       }
     }
 
-    // Up to here, sol_dx is correct and solve_thomas is correct
-    // Need to understand why dx is wrong
-
-    solve_thomas(dx, sol_dx);
-    MtxY &dy          = *_dy;
-    MtxYMesh &dy_mesh = dy.template reshape<MtxYMesh>();
-
-    SolVecY &sol_dy       = *_sol_dy;
-    VecMeshY &sol_dy_mesh = sol_dy.template reshape<VecMeshY>();
-    // Enforce our boundary conditions
     for(int i = 0; i < MeshT::x_dim(); i++) {
-      dy_mesh(i, 0, 0) = Jacobian(Jacobian::ZeroTag());
-      dy_mesh(i, 0, 1) = Jacobian(Jacobian::IdentityTag());
-      dy_mesh(i, 0, 2) = Jacobian(Jacobian::IdentityTag());
+      MtxY &dy = *_dy;
+      // Enforce our boundary conditions
+      dy(0, 0) = Jacobian(Jacobian::ZeroTag());
+      dy(0, 1) = Jacobian(Jacobian::IdentityTag());
+      dy(0, 2) = Jacobian(Jacobian::IdentityTag());
 
-      dy_mesh(i, MtxYMesh::extent(1) - 1, 0) =
-          Jacobian(Jacobian::IdentityTag());
-      dy_mesh(i, MtxYMesh::extent(1) - 1, 1) =
-          Jacobian(Jacobian::IdentityTag());
-      dy_mesh(i, MtxYMesh::extent(1) - 1, 2) = Jacobian(Jacobian::ZeroTag());
+      dy(vec_y_dim - 1, 0) = Jacobian(Jacobian::IdentityTag());
+      dy(vec_y_dim - 1, 1) = Jacobian(Jacobian::IdentityTag());
+      dy(vec_y_dim - 1, 2) = Jacobian(Jacobian::ZeroTag());
 
-      sol_dy_mesh(i, 0)                  = 0.0;
-      sol_dy_mesh(i, MeshT::y_dim() + 1) = 0.0;
-    }
+      sol_dy(0)                  = 0.0;
+      sol_dy(MeshT::y_dim() + 1) = 0.0;
 
-    for(int i = 0; i < MeshT::x_dim(); i++) {
+      XYIntermediate &inter = *_intermediate;
       for(int j = 0; j < MeshT::y_dim(); j++) {
-        // Note that since the Thomas algorithm solves a tridiagonal system,
-        // we need to swap some rows of the solution to make the matrix
-        // tridiagonal ie, go from increasing the x index to increasing the y
-        // index. This is easiest to achieve by taking the transpose of the
-        // solution when looking at it like a matrix
-        // We also ignore the ghost cells, since those are degenerate between
-        // directions
-        sol_dy_mesh(i, j + 1) = sol_dx_mesh(j, i + 1);
-      }
-    }
+        sol_dy(j + 1) = inter(i, j);
 
-    for(int i = 0; i < MeshT::x_dim(); i++) {
+        dy(j + 1, 0) = space_assembly.Dy_m1(mesh, i, j, this->time()) * dt;
+        dy(j + 1, 1) = Jacobian(Jacobian::IdentityTag()) +
+                       space_assembly.Dy_0(mesh, i, j, this->time()) * dt;
+        dy(j + 1, 2) = space_assembly.Dy_p1(mesh, i, j, this->time()) * dt;
+      }
+
+      solve_thomas(dy, sol_dy);
+
       for(int j = 0; j < MeshT::y_dim(); j++) {
-        dy_mesh(i, j + 1, 0) =
-            space_assembly.Dy_m1(mesh, i, j, this->time()) * dt;
-        dy_mesh(i, j + 1, 1) =
-            Jacobian(Jacobian::IdentityTag()) +
-            space_assembly.Dy_0(mesh, i, j, this->time()) * dt;
-        dy_mesh(i, j + 1, 2) =
-            space_assembly.Dy_p1(mesh, i, j, this->time()) * dt;
+        inter(i, j) = sol_dy(j + 1);
       }
     }
-
-    solve_thomas(dy, sol_dy);
 
     real max_change = 0.0;
 
@@ -218,12 +196,13 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceDisc> {
     // So just add it to our P, u, and v terms
     // Recall that our sol_mesh is transposed, so we need to swap the indices
     // used for it
+    const XYIntermediate &inter = *_intermediate;
     for(int i = 0; i < MeshT::x_dim(); i++) {
       for(int j = 0; j < MeshT::y_dim(); j++) {
-        max_change = std::max(max_change, sol_dy_mesh(i, j + 1).l2_norm());
-        this->_cur_mesh->press(i, j) += sol_dy_mesh(i, j + 1)(0);
-        this->_cur_mesh->u_vel(i, j) += sol_dy_mesh(i, j + 1)(1);
-        this->_cur_mesh->v_vel(i, j) += sol_dy_mesh(i, j + 1)(2);
+        max_change = std::max(max_change, inter(i, j).l2_norm());
+        this->_cur_mesh->press(i, j) += inter(i, j)(0);
+        this->_cur_mesh->u_vel(i, j) += inter(i, j)(1);
+        this->_cur_mesh->v_vel(i, j) += inter(i, j)(2);
       }
     }
 
@@ -238,6 +217,7 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceDisc> {
   std::unique_ptr<MtxY> _dy;
   std::unique_ptr<SolVecX> _sol_dx;
   std::unique_ptr<SolVecY> _sol_dy;
+  std::unique_ptr<XYIntermediate> _intermediate;
 };
 
 template <typename _Mesh, typename _SpaceDisc>
