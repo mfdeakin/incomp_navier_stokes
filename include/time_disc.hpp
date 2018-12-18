@@ -212,9 +212,12 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceDisc> {
     for(int i = 0; i < MeshT::x_dim(); i++) {
       for(int j = 0; j < MeshT::y_dim(); j++) {
         max_change = std::max(max_change, inter(i, j).l2_norm());
-        this->_cur_mesh->press(i, j) += inter(i, j)(0);
-        this->_cur_mesh->u_vel(i, j) += inter(i, j)(1);
-        this->_cur_mesh->v_vel(i, j) += inter(i, j)(2);
+        this->_cur_mesh->press(i, j) +=
+            inter(i, j)(0) * this->boundaries().relax();
+        this->_cur_mesh->u_vel(i, j) +=
+            inter(i, j)(1) * this->boundaries().relax();
+        this->_cur_mesh->v_vel(i, j) +=
+            inter(i, j)(2) * this->boundaries().relax();
       }
     }
 
