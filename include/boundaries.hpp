@@ -22,6 +22,9 @@ class BConds_Base {
   [[nodiscard]] constexpr real beta() const noexcept { return _beta; }
   [[nodiscard]] constexpr real reynolds() const noexcept { return _reynolds; }
 
+  [[nodiscard]] constexpr real diffuse() const noexcept { return 0.0; }
+  [[nodiscard]] constexpr real relax() const noexcept { return 1.0; }
+
   constexpr BConds_Base(const real P_0, const real u_0, const real v_0,
                         const real beta, const real reynolds,
                         const real x_min = 0.0, const real x_max = 1.0,
@@ -92,22 +95,26 @@ class BConds_Part3 : public BConds_Base<BConds_Part3> {
     return v_0() * std::sin(2.0 * pi * x) * std::sin(pi * y);
   }
 
+  [[nodiscard]] real relax() const noexcept { return _relax; }
+
+  [[nodiscard]] real diffuse() const noexcept { return _diffuse; }
+
   template <typename MeshT>
   std::tuple<bool, int, int> boundary_coord(const MeshT &mesh, const int i,
                                             const int j) const noexcept {
-    int i_edge      = i;
-    int j_edge      = j;
+    int i_edge = i;
+    int j_edge = j;
     if(i == -1) {
       i_edge = 0;
     } else if(i == mesh.x_dim()) {
       i_edge -= 1;
     }
-		if(j == -1) {
+    if(j == -1) {
       j_edge = 0;
     } else if(j == mesh.y_dim()) {
       j_edge -= 1;
     }
-		const bool ghost_cell = !(i == i_edge && j == j_edge);
+    const bool ghost_cell = !(i == i_edge && j == j_edge);
     return {ghost_cell, i_edge, j_edge};
   }
 
@@ -161,16 +168,22 @@ class BConds_Part3 : public BConds_Base<BConds_Part3> {
 
   constexpr BConds_Part3(const real wall_vel, const real P_0, const real u_0,
                          const real v_0, const real beta, const real reynolds,
+                         const real relax = 1.0, const real diffuse = 0.0,
                          const real x_min = 0.0, const real x_max = 1.0,
                          const real y_min = 0.0, const real y_max = 1.0)
       : BConds_Base(P_0, u_0, v_0, beta, reynolds, x_min, x_max, y_min, y_max),
-        _wall_vel(wall_vel) {}
+        _wall_vel(wall_vel),
+        _relax(relax),
+        _diffuse(diffuse) {}
 
   constexpr BConds_Part3(const BConds_Part3 &src)
-      : BConds_Base(src), _wall_vel(src._wall_vel) {}
+      : BConds_Base(src),
+        _wall_vel(src._wall_vel),
+        _relax(src._relax),
+        _diffuse(src._diffuse) {}
 
  protected:
-  real _wall_vel;
+  real _wall_vel, _relax, _diffuse;
 };
 
 class BConds_Part1 : public BConds_Base<BConds_Part1> {
