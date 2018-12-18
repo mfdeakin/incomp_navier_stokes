@@ -22,8 +22,19 @@ class [[nodiscard]] INSAssembly : public _SpaceDisc {
     const real v_above = this->v_y_flux(mesh, i, j, time);
     const real v_below = this->v_y_flux(mesh, i, j - 1, time);
 
-    const real fp_u_x_deriv = (u_right - u_left) / mesh.dx();
-    const real gp_v_y_deriv = (v_above - v_below) / mesh.dy();
+    const real dp_right = this->dP_x_flux(mesh, i, j, time);
+    const real dp_left  = this->dP_x_flux(mesh, i - 1, j, time);
+    const real dp_above = this->dP_y_flux(mesh, i, j, time);
+    const real dp_below = this->dP_y_flux(mesh, i, j - 1, time);
+
+    const real fp_u_x_deriv =
+        ((u_right - u_left) + this->boundaries().diffuse() * mesh.dy() *
+                                  mesh.dx() * (dp_right - dp_left)) /
+        mesh.dx();
+    const real gp_v_y_deriv =
+        ((v_above - v_below) + this->boundaries().diffuse() * mesh.dy() *
+                                   mesh.dx() * (dp_above - dp_below)) /
+        mesh.dy();
     const real p_term =
         (fp_u_x_deriv + gp_v_y_deriv) / this->boundaries().beta();
 
@@ -138,6 +149,7 @@ class [[nodiscard]] SecondOrderCentered {
       const noexcept {
     // This is the Jacobian of F_{i+1/2,j} wrt U_{i,j}
     Jacobian b_x(jacobian_x_base(mesh, i, j, time));
+    b_x(0, 0)             = -boundaries().diffuse() * mesh.dy();
     const real deriv_term = 1.0 / (boundaries().reynolds() * mesh.dx());
     b_x(1, 1) += deriv_term;
     b_x(2, 2) += deriv_term;
@@ -150,6 +162,7 @@ class [[nodiscard]] SecondOrderCentered {
       const noexcept {
     // This is the Jacobian of F_{i+1/2,j} wrt U_{i+1,j}
     Jacobian b_x(jacobian_x_base(mesh, i, j, time));
+    b_x(0, 0)             = boundaries().diffuse() * mesh.dy();
     const real deriv_term = 1.0 / (boundaries().reynolds() * mesh.dx());
     b_x(1, 1) -= deriv_term;
     b_x(2, 2) -= deriv_term;
@@ -217,6 +230,7 @@ class [[nodiscard]] SecondOrderCentered {
       const noexcept {
     // This is the Jacobian of G_{i+1/2,j} wrt U_{i,j}
     Jacobian j_y(jacobian_y_base(mesh, i, j, time));
+    j_y(0, 0)             = -boundaries().diffuse() * mesh.dx();
     const real deriv_term = 1.0 / (boundaries().reynolds() * mesh.dy());
     j_y(1, 1) += deriv_term;
     j_y(2, 2) += deriv_term;
@@ -229,6 +243,7 @@ class [[nodiscard]] SecondOrderCentered {
       const noexcept {
     // This is the Jacobian of G_{i+1/2,j} wrt U_{i+1,j}
     Jacobian j_y(jacobian_y_base(mesh, i, j, time));
+    j_y(0, 0)             = boundaries().diffuse() * mesh.dx();
     const real deriv_term = 1.0 / (boundaries().reynolds() * mesh.dy());
     j_y(1, 1) -= deriv_term;
     j_y(2, 2) -= deriv_term;
@@ -352,6 +367,30 @@ class [[nodiscard]] SecondOrderCentered {
     return get_value_y_flux(mesh,
                             [=](const MeshT &mesh, const int i, const int j) {
                               return boundaries().v_vel_at(mesh, time, i, j);
+                            },
+                            i, j);
+  }
+
+  // Centered FV approximation to dP_dx_{i+1/2, j}
+  template <typename MeshT>
+  [[nodiscard]] constexpr real dP_x_flux(const MeshT &mesh, const int i,
+                                         const int j, const real time)
+      const noexcept {
+    return get_deriv_x_flux(mesh,
+                            [=](const MeshT &mesh, const int i, const int j) {
+                              return boundaries().pressure_at(mesh, time, i, j);
+                            },
+                            i, j);
+  }
+
+  // Centered FV approximation to dP_dy_{i+1/2, j}
+  template <typename MeshT>
+  [[nodiscard]] constexpr real dP_y_flux(const MeshT &mesh, const int i,
+                                         const int j, const real time)
+      const noexcept {
+    return get_deriv_y_flux(mesh,
+                            [=](const MeshT &mesh, const int i, const int j) {
+                              return boundaries().pressure_at(mesh, time, i, j);
                             },
                             i, j);
   }
