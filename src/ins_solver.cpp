@@ -278,11 +278,12 @@ PYBIND11_MODULE(ins_solver, module) {
       .def("flux_int_solution", &BConds_Part1::flux_int_solution);
 
   def_bcond<BConds_Part3>(module, "BConds_Part3")
-      .def(py::init<real, real, real, real, real, real, real, real, real,
-                    real>(),
+      .def(py::init<real, real, real, real, real, real, real, real, real, real,
+                    real, real>(),
            py::arg("wall_vel") = 0.0, py::arg("P_0") = 1.0,
            py::arg("u_0") = 1.0, py::arg("v_0") = 1.0, py::arg("beta") = 1.0,
-           py::arg("reynolds") = 1.0, py::arg("x_min") = 0.0,
+           py::arg("reynolds") = 1.0, py::arg("relax") = 1.0,
+           py::arg("diffuse") = 0.0, py::arg("x_min") = 0.0,
            py::arg("x_max") = 1.0, py::arg("y_min") = 0.0,
            py::arg("y_max") = 1.0);
 
