@@ -88,8 +88,8 @@ py::class_<Mesh<ctrl_x, ctrl_y>> def_mesh(py::module &module) {
     return a;
   });
 
-  using SpaceDisc     = SecondOrderCentered<BConds_Part1>;
-  using Base_Solver_1 = Base_Solver<MeshT, SpaceDisc>;
+  using SpaceDisc_1   = SecondOrderCentered<BConds_Part1>;
+  using Base_Solver_1 = Base_Solver<MeshT, SpaceDisc_1>;
   ss.str("");
   ss << "Base_1_" << ctrl_x << "x" << ctrl_y;
   py::class_<Base_Solver_1> base_1(module, ss.str().c_str());
@@ -100,22 +100,22 @@ py::class_<Mesh<ctrl_x, ctrl_y>> def_mesh(py::module &module) {
            (const MeshT &(Base_Solver_1::*)() const) & Base_Solver_1::mesh)
       .def("mesh", (MeshT & (Base_Solver_1::*)()) & Base_Solver_1::mesh);
 
-  using RK1 = RK1_Solver<MeshT, SpaceDisc>;
+  using RK1 = RK1_Solver<MeshT, SpaceDisc_1>;
   ss.str("");
   ss << "RK1_" << ctrl_x << "x" << ctrl_y;
   py::class_<RK1, Base_Solver_1> rk1(module, ss.str().c_str());
   rk1.def(py::init<const BConds_Part1 &>(), py::arg("boundaries"))
       .def("timestep", &RK1::timestep);
 
-  using RK4 = RK4_Solver<MeshT, SpaceDisc>;
+  using RK4_1 = RK4_Solver<MeshT, SpaceDisc_1>;
   ss.str("");
-  ss << "RK4_" << ctrl_x << "x" << ctrl_y;
-  py::class_<RK4, Base_Solver_1> rk4(module, ss.str().c_str());
+  ss << "RK4_1_" << ctrl_x << "x" << ctrl_y;
+  py::class_<RK4_1, Base_Solver_1> rk4(module, ss.str().c_str());
   rk4.def(py::init<const BConds_Part1 &>(), py::arg("boundaries"))
-      .def("timestep", &RK4::timestep);
+      .def("timestep", &RK4_1::timestep);
 
-  using SpaceDisc3    = SecondOrderCentered<BConds_Part3>;
-  using Base_Solver_3 = Base_Solver<MeshT, SpaceDisc3>;
+  using SpaceDisc_3   = SecondOrderCentered<BConds_Part3>;
+  using Base_Solver_3 = Base_Solver<MeshT, SpaceDisc_3>;
   ss.str("");
   ss << "Base_3_" << ctrl_x << "x" << ctrl_y;
   py::class_<Base_Solver_3> base_3(module, ss.str().c_str());
@@ -126,7 +126,14 @@ py::class_<Mesh<ctrl_x, ctrl_y>> def_mesh(py::module &module) {
            (const MeshT &(Base_Solver_3::*)() const) & Base_Solver_3::mesh)
       .def("mesh", (MeshT & (Base_Solver_3::*)()) & Base_Solver_3::mesh);
 
-  using IE = ImplicitEuler_Solver<MeshT, SpaceDisc3>;
+  using RK4_3 = RK4_Solver<MeshT, SpaceDisc_3>;
+  ss.str("");
+  ss << "RK4_3_" << ctrl_x << "x" << ctrl_y;
+  py::class_<RK4_3, Base_Solver_3> rk4_3(module, ss.str().c_str());
+  rk4_3.def(py::init<const BConds_Part3 &>(), py::arg("boundaries"))
+      .def("timestep", &RK4_3::timestep);
+
+  using IE = ImplicitEuler_Solver<MeshT, SpaceDisc_3>;
   ss.str("");
   ss << "IE_" << ctrl_x << "x" << ctrl_y;
   py::class_<IE, Base_Solver_3> ie(module, ss.str().c_str());
@@ -292,7 +299,21 @@ PYBIND11_MODULE(ins_solver, module) {
   def_mesh<40, 40>(module);
   def_mesh<80, 80>(module);
   def_mesh<160, 160>(module);
-  def_mesh<1024, 1024>(module);
+  def_mesh<320, 320>(module);
+
+  def_mesh<10, 20>(module);
+  def_mesh<20, 40>(module);
+  def_mesh<40, 80>(module);
+  def_mesh<80, 160>(module);
+  def_mesh<160, 320>(module);
+  def_mesh<320, 640>(module);
+
+  def_mesh<10, 40>(module);
+  def_mesh<20, 80>(module);
+  def_mesh<40, 160>(module);
+  def_mesh<80, 320>(module);
+  def_mesh<160, 640>(module);
+  def_mesh<320, 1280>(module);
 
   using Discretization1 = SecondOrderCentered<BConds_Part1>;
   py::class_<Discretization1>(module, "SecondOrderCentered1")
@@ -302,163 +323,136 @@ PYBIND11_MODULE(ins_solver, module) {
       .def("Dx_p1", &Discretization1::Dx_p1<Mesh<40, 40>>)
       .def("Dx_p1", &Discretization1::Dx_p1<Mesh<80, 80>>)
       .def("Dx_p1", &Discretization1::Dx_p1<Mesh<160, 160>>)
-      .def("Dx_p1", &Discretization1::Dx_p1<Mesh<1024, 1024>>)
 
       .def("Dx_0", &Discretization1::Dx_0<Mesh<10, 10>>)
       .def("Dx_0", &Discretization1::Dx_0<Mesh<20, 20>>)
       .def("Dx_0", &Discretization1::Dx_0<Mesh<40, 40>>)
       .def("Dx_0", &Discretization1::Dx_0<Mesh<80, 80>>)
       .def("Dx_0", &Discretization1::Dx_0<Mesh<160, 160>>)
-      .def("Dx_0", &Discretization1::Dx_0<Mesh<1024, 1024>>)
 
       .def("Dx_m1", &Discretization1::Dx_m1<Mesh<10, 10>>)
       .def("Dx_m1", &Discretization1::Dx_m1<Mesh<20, 20>>)
       .def("Dx_m1", &Discretization1::Dx_m1<Mesh<40, 40>>)
       .def("Dx_m1", &Discretization1::Dx_m1<Mesh<80, 80>>)
       .def("Dx_m1", &Discretization1::Dx_m1<Mesh<160, 160>>)
-      .def("Dx_m1", &Discretization1::Dx_m1<Mesh<1024, 1024>>)
 
       .def("Dy_p1", &Discretization1::Dy_p1<Mesh<10, 10>>)
       .def("Dy_p1", &Discretization1::Dy_p1<Mesh<20, 20>>)
       .def("Dy_p1", &Discretization1::Dy_p1<Mesh<40, 40>>)
       .def("Dy_p1", &Discretization1::Dy_p1<Mesh<80, 80>>)
       .def("Dy_p1", &Discretization1::Dy_p1<Mesh<160, 160>>)
-      .def("Dy_p1", &Discretization1::Dy_p1<Mesh<1024, 1024>>)
 
       .def("Dy_0", &Discretization1::Dy_0<Mesh<10, 10>>)
       .def("Dy_0", &Discretization1::Dy_0<Mesh<20, 20>>)
       .def("Dy_0", &Discretization1::Dy_0<Mesh<40, 40>>)
       .def("Dy_0", &Discretization1::Dy_0<Mesh<80, 80>>)
       .def("Dy_0", &Discretization1::Dy_0<Mesh<160, 160>>)
-      .def("Dy_0", &Discretization1::Dy_0<Mesh<1024, 1024>>)
 
       .def("Dy_m1", &Discretization1::Dy_m1<Mesh<10, 10>>)
       .def("Dy_m1", &Discretization1::Dy_m1<Mesh<20, 20>>)
       .def("Dy_m1", &Discretization1::Dy_m1<Mesh<40, 40>>)
       .def("Dy_m1", &Discretization1::Dy_m1<Mesh<80, 80>>)
       .def("Dy_m1", &Discretization1::Dy_m1<Mesh<160, 160>>)
-      .def("Dy_m1", &Discretization1::Dy_m1<Mesh<1024, 1024>>)
 
       .def("press_x_flux", &Discretization1::press_x_flux<Mesh<10, 10>>)
       .def("press_x_flux", &Discretization1::press_x_flux<Mesh<20, 20>>)
       .def("press_x_flux", &Discretization1::press_x_flux<Mesh<40, 40>>)
       .def("press_x_flux", &Discretization1::press_x_flux<Mesh<80, 80>>)
       .def("press_x_flux", &Discretization1::press_x_flux<Mesh<160, 160>>)
-      .def("press_x_flux", &Discretization1::press_x_flux<Mesh<1024, 1024>>)
 
       .def("press_y_flux", &Discretization1::press_y_flux<Mesh<10, 10>>)
       .def("press_y_flux", &Discretization1::press_y_flux<Mesh<20, 20>>)
       .def("press_y_flux", &Discretization1::press_y_flux<Mesh<40, 40>>)
       .def("press_y_flux", &Discretization1::press_y_flux<Mesh<80, 80>>)
       .def("press_y_flux", &Discretization1::press_y_flux<Mesh<160, 160>>)
-      .def("press_y_flux", &Discretization1::press_y_flux<Mesh<1024, 1024>>)
 
       .def("u_x_flux", &Discretization1::u_x_flux<Mesh<10, 10>>)
       .def("u_x_flux", &Discretization1::u_x_flux<Mesh<20, 20>>)
       .def("u_x_flux", &Discretization1::u_x_flux<Mesh<40, 40>>)
       .def("u_x_flux", &Discretization1::u_x_flux<Mesh<80, 80>>)
       .def("u_x_flux", &Discretization1::u_x_flux<Mesh<160, 160>>)
-      .def("u_x_flux", &Discretization1::u_x_flux<Mesh<1024, 1024>>)
 
       .def("u_y_flux", &Discretization1::u_y_flux<Mesh<10, 10>>)
       .def("u_y_flux", &Discretization1::u_y_flux<Mesh<20, 20>>)
       .def("u_y_flux", &Discretization1::u_y_flux<Mesh<40, 40>>)
       .def("u_y_flux", &Discretization1::u_y_flux<Mesh<80, 80>>)
       .def("u_y_flux", &Discretization1::u_y_flux<Mesh<160, 160>>)
-      .def("u_y_flux", &Discretization1::u_y_flux<Mesh<1024, 1024>>)
 
       .def("v_x_flux", &Discretization1::v_x_flux<Mesh<10, 10>>)
       .def("v_x_flux", &Discretization1::v_x_flux<Mesh<20, 20>>)
       .def("v_x_flux", &Discretization1::v_x_flux<Mesh<40, 40>>)
       .def("v_x_flux", &Discretization1::v_x_flux<Mesh<80, 80>>)
       .def("v_x_flux", &Discretization1::v_x_flux<Mesh<160, 160>>)
-      .def("v_x_flux", &Discretization1::v_x_flux<Mesh<1024, 1024>>)
 
       .def("v_y_flux", &Discretization1::v_y_flux<Mesh<10, 10>>)
       .def("v_y_flux", &Discretization1::v_y_flux<Mesh<20, 20>>)
       .def("v_y_flux", &Discretization1::v_y_flux<Mesh<40, 40>>)
       .def("v_y_flux", &Discretization1::v_y_flux<Mesh<80, 80>>)
       .def("v_y_flux", &Discretization1::v_y_flux<Mesh<160, 160>>)
-      .def("v_y_flux", &Discretization1::v_y_flux<Mesh<1024, 1024>>)
 
       .def("du_x_flux", &Discretization1::du_x_flux<Mesh<10, 10>>)
       .def("du_x_flux", &Discretization1::du_x_flux<Mesh<20, 20>>)
       .def("du_x_flux", &Discretization1::du_x_flux<Mesh<40, 40>>)
       .def("du_x_flux", &Discretization1::du_x_flux<Mesh<80, 80>>)
       .def("du_x_flux", &Discretization1::du_x_flux<Mesh<160, 160>>)
-      .def("du_x_flux", &Discretization1::du_x_flux<Mesh<1024, 1024>>)
 
       .def("du_y_flux", &Discretization1::du_y_flux<Mesh<10, 10>>)
       .def("du_y_flux", &Discretization1::du_y_flux<Mesh<20, 20>>)
       .def("du_y_flux", &Discretization1::du_y_flux<Mesh<40, 40>>)
       .def("du_y_flux", &Discretization1::du_y_flux<Mesh<80, 80>>)
       .def("du_y_flux", &Discretization1::du_y_flux<Mesh<160, 160>>)
-      .def("du_y_flux", &Discretization1::du_y_flux<Mesh<1024, 1024>>)
 
       .def("dv_x_flux", &Discretization1::dv_x_flux<Mesh<10, 10>>)
       .def("dv_x_flux", &Discretization1::dv_x_flux<Mesh<20, 20>>)
       .def("dv_x_flux", &Discretization1::dv_x_flux<Mesh<40, 40>>)
       .def("dv_x_flux", &Discretization1::dv_x_flux<Mesh<80, 80>>)
       .def("dv_x_flux", &Discretization1::dv_x_flux<Mesh<160, 160>>)
-      .def("dv_x_flux", &Discretization1::dv_x_flux<Mesh<1024, 1024>>)
 
       .def("dv_y_flux", &Discretization1::dv_y_flux<Mesh<10, 10>>)
       .def("dv_y_flux", &Discretization1::dv_y_flux<Mesh<20, 20>>)
       .def("dv_y_flux", &Discretization1::dv_y_flux<Mesh<40, 40>>)
       .def("dv_y_flux", &Discretization1::dv_y_flux<Mesh<80, 80>>)
-      .def("dv_y_flux", &Discretization1::dv_y_flux<Mesh<160, 160>>)
-      .def("dv_y_flux", &Discretization1::dv_y_flux<Mesh<1024, 1024>>);
+      .def("dv_y_flux", &Discretization1::dv_y_flux<Mesh<160, 160>>);
 
   using Assembly1 = INSAssembly<Discretization1>;
   py::class_<Assembly1, Discretization1>(module, "INSAssembly1")
       .def(py::init<const BConds_Part1 &>(), py::arg("boundaries"))
-      // .def("boundaries",
-      //      [](Assembly1 &self) {
-      //        printf("self: %p\n", &self);
-      //        return self.boundaries();
-      //      })
       .def("boundaries", &Assembly1::boundaries)
       .def("flux_integral", &Assembly1::flux_integral<Mesh<10, 10>>)
       .def("flux_integral", &Assembly1::flux_integral<Mesh<20, 20>>)
       .def("flux_integral", &Assembly1::flux_integral<Mesh<40, 40>>)
       .def("flux_integral", &Assembly1::flux_integral<Mesh<80, 80>>)
       .def("flux_integral", &Assembly1::flux_integral<Mesh<160, 160>>)
-      .def("flux_integral", &Assembly1::flux_integral<Mesh<1024, 1024>>)
 
       .def("flux_assembly", &Assembly1::flux_assembly<Mesh<10, 10>>)
       .def("flux_assembly", &Assembly1::flux_assembly<Mesh<20, 20>>)
       .def("flux_assembly", &Assembly1::flux_assembly<Mesh<40, 40>>)
       .def("flux_assembly", &Assembly1::flux_assembly<Mesh<80, 80>>)
       .def("flux_assembly", &Assembly1::flux_assembly<Mesh<160, 160>>)
-      .def("flux_assembly", &Assembly1::flux_assembly<Mesh<1024, 1024>>)
 
       .def("jacobian_x_p1", &Assembly1::jacobian_x_p1<Mesh<10, 10>>)
       .def("jacobian_x_p1", &Assembly1::jacobian_x_p1<Mesh<20, 20>>)
       .def("jacobian_x_p1", &Assembly1::jacobian_x_p1<Mesh<40, 40>>)
       .def("jacobian_x_p1", &Assembly1::jacobian_x_p1<Mesh<80, 80>>)
       .def("jacobian_x_p1", &Assembly1::jacobian_x_p1<Mesh<160, 160>>)
-      .def("jacobian_x_p1", &Assembly1::jacobian_x_p1<Mesh<1024, 1024>>)
 
       .def("jacobian_x_0", &Assembly1::jacobian_x_0<Mesh<10, 10>>)
       .def("jacobian_x_0", &Assembly1::jacobian_x_0<Mesh<20, 20>>)
       .def("jacobian_x_0", &Assembly1::jacobian_x_0<Mesh<40, 40>>)
       .def("jacobian_x_0", &Assembly1::jacobian_x_0<Mesh<80, 80>>)
       .def("jacobian_x_0", &Assembly1::jacobian_x_0<Mesh<160, 160>>)
-      .def("jacobian_x_0", &Assembly1::jacobian_x_0<Mesh<1024, 1024>>)
 
       .def("jacobian_y_p1", &Assembly1::jacobian_y_p1<Mesh<10, 10>>)
       .def("jacobian_y_p1", &Assembly1::jacobian_y_p1<Mesh<20, 20>>)
       .def("jacobian_y_p1", &Assembly1::jacobian_y_p1<Mesh<40, 40>>)
       .def("jacobian_y_p1", &Assembly1::jacobian_y_p1<Mesh<80, 80>>)
       .def("jacobian_y_p1", &Assembly1::jacobian_y_p1<Mesh<160, 160>>)
-      .def("jacobian_y_p1", &Assembly1::jacobian_y_p1<Mesh<1024, 1024>>)
 
       .def("jacobian_y_0", &Assembly1::jacobian_y_0<Mesh<10, 10>>)
       .def("jacobian_y_0", &Assembly1::jacobian_y_0<Mesh<20, 20>>)
       .def("jacobian_y_0", &Assembly1::jacobian_y_0<Mesh<40, 40>>)
       .def("jacobian_y_0", &Assembly1::jacobian_y_0<Mesh<80, 80>>)
-      .def("jacobian_y_0", &Assembly1::jacobian_y_0<Mesh<160, 160>>)
-      .def("jacobian_y_0", &Assembly1::jacobian_y_0<Mesh<1024, 1024>>);
+      .def("jacobian_y_0", &Assembly1::jacobian_y_0<Mesh<160, 160>>);
 
   using Discretization3 = SecondOrderCentered<BConds_Part3>;
   py::class_<Discretization3>(module, "SecondOrderCentered3")
@@ -468,112 +462,96 @@ PYBIND11_MODULE(ins_solver, module) {
       .def("Dx_p1", &Discretization3::Dx_p1<Mesh<40, 40>>)
       .def("Dx_p1", &Discretization3::Dx_p1<Mesh<80, 80>>)
       .def("Dx_p1", &Discretization3::Dx_p1<Mesh<160, 160>>)
-      .def("Dx_p1", &Discretization3::Dx_p1<Mesh<1024, 1024>>)
 
       .def("Dx_0", &Discretization3::Dx_0<Mesh<10, 10>>)
       .def("Dx_0", &Discretization3::Dx_0<Mesh<20, 20>>)
       .def("Dx_0", &Discretization3::Dx_0<Mesh<40, 40>>)
       .def("Dx_0", &Discretization3::Dx_0<Mesh<80, 80>>)
       .def("Dx_0", &Discretization3::Dx_0<Mesh<160, 160>>)
-      .def("Dx_0", &Discretization3::Dx_0<Mesh<1024, 1024>>)
 
       .def("Dx_m1", &Discretization3::Dx_m1<Mesh<10, 10>>)
       .def("Dx_m1", &Discretization3::Dx_m1<Mesh<20, 20>>)
       .def("Dx_m1", &Discretization3::Dx_m1<Mesh<40, 40>>)
       .def("Dx_m1", &Discretization3::Dx_m1<Mesh<80, 80>>)
       .def("Dx_m1", &Discretization3::Dx_m1<Mesh<160, 160>>)
-      .def("Dx_m1", &Discretization3::Dx_m1<Mesh<1024, 1024>>)
 
       .def("Dy_p1", &Discretization3::Dy_p1<Mesh<10, 10>>)
       .def("Dy_p1", &Discretization3::Dy_p1<Mesh<20, 20>>)
       .def("Dy_p1", &Discretization3::Dy_p1<Mesh<40, 40>>)
       .def("Dy_p1", &Discretization3::Dy_p1<Mesh<80, 80>>)
       .def("Dy_p1", &Discretization3::Dy_p1<Mesh<160, 160>>)
-      .def("Dy_p1", &Discretization3::Dy_p1<Mesh<1024, 1024>>)
 
       .def("Dy_0", &Discretization3::Dy_0<Mesh<10, 10>>)
       .def("Dy_0", &Discretization3::Dy_0<Mesh<20, 20>>)
       .def("Dy_0", &Discretization3::Dy_0<Mesh<40, 40>>)
       .def("Dy_0", &Discretization3::Dy_0<Mesh<80, 80>>)
       .def("Dy_0", &Discretization3::Dy_0<Mesh<160, 160>>)
-      .def("Dy_0", &Discretization3::Dy_0<Mesh<1024, 1024>>)
 
       .def("Dy_m1", &Discretization3::Dy_m1<Mesh<10, 10>>)
       .def("Dy_m1", &Discretization3::Dy_m1<Mesh<20, 20>>)
       .def("Dy_m1", &Discretization3::Dy_m1<Mesh<40, 40>>)
       .def("Dy_m1", &Discretization3::Dy_m1<Mesh<80, 80>>)
       .def("Dy_m1", &Discretization3::Dy_m1<Mesh<160, 160>>)
-      .def("Dy_m1", &Discretization3::Dy_m1<Mesh<1024, 1024>>)
 
       .def("press_x_flux", &Discretization3::press_x_flux<Mesh<10, 10>>)
       .def("press_x_flux", &Discretization3::press_x_flux<Mesh<20, 20>>)
       .def("press_x_flux", &Discretization3::press_x_flux<Mesh<40, 40>>)
       .def("press_x_flux", &Discretization3::press_x_flux<Mesh<80, 80>>)
       .def("press_x_flux", &Discretization3::press_x_flux<Mesh<160, 160>>)
-      .def("press_x_flux", &Discretization3::press_x_flux<Mesh<1024, 1024>>)
 
       .def("press_y_flux", &Discretization3::press_y_flux<Mesh<10, 10>>)
       .def("press_y_flux", &Discretization3::press_y_flux<Mesh<20, 20>>)
       .def("press_y_flux", &Discretization3::press_y_flux<Mesh<40, 40>>)
       .def("press_y_flux", &Discretization3::press_y_flux<Mesh<80, 80>>)
       .def("press_y_flux", &Discretization3::press_y_flux<Mesh<160, 160>>)
-      .def("press_y_flux", &Discretization3::press_y_flux<Mesh<1024, 1024>>)
 
       .def("u_x_flux", &Discretization3::u_x_flux<Mesh<10, 10>>)
       .def("u_x_flux", &Discretization3::u_x_flux<Mesh<20, 20>>)
       .def("u_x_flux", &Discretization3::u_x_flux<Mesh<40, 40>>)
       .def("u_x_flux", &Discretization3::u_x_flux<Mesh<80, 80>>)
       .def("u_x_flux", &Discretization3::u_x_flux<Mesh<160, 160>>)
-      .def("u_x_flux", &Discretization3::u_x_flux<Mesh<1024, 1024>>)
 
       .def("u_y_flux", &Discretization3::u_y_flux<Mesh<10, 10>>)
       .def("u_y_flux", &Discretization3::u_y_flux<Mesh<20, 20>>)
       .def("u_y_flux", &Discretization3::u_y_flux<Mesh<40, 40>>)
       .def("u_y_flux", &Discretization3::u_y_flux<Mesh<80, 80>>)
       .def("u_y_flux", &Discretization3::u_y_flux<Mesh<160, 160>>)
-      .def("u_y_flux", &Discretization3::u_y_flux<Mesh<1024, 1024>>)
 
       .def("v_x_flux", &Discretization3::v_x_flux<Mesh<10, 10>>)
       .def("v_x_flux", &Discretization3::v_x_flux<Mesh<20, 20>>)
       .def("v_x_flux", &Discretization3::v_x_flux<Mesh<40, 40>>)
       .def("v_x_flux", &Discretization3::v_x_flux<Mesh<80, 80>>)
       .def("v_x_flux", &Discretization3::v_x_flux<Mesh<160, 160>>)
-      .def("v_x_flux", &Discretization3::v_x_flux<Mesh<1024, 1024>>)
 
       .def("v_y_flux", &Discretization3::v_y_flux<Mesh<10, 10>>)
       .def("v_y_flux", &Discretization3::v_y_flux<Mesh<20, 20>>)
       .def("v_y_flux", &Discretization3::v_y_flux<Mesh<40, 40>>)
       .def("v_y_flux", &Discretization3::v_y_flux<Mesh<80, 80>>)
       .def("v_y_flux", &Discretization3::v_y_flux<Mesh<160, 160>>)
-      .def("v_y_flux", &Discretization3::v_y_flux<Mesh<1024, 1024>>)
 
       .def("du_x_flux", &Discretization3::du_x_flux<Mesh<10, 10>>)
       .def("du_x_flux", &Discretization3::du_x_flux<Mesh<20, 20>>)
       .def("du_x_flux", &Discretization3::du_x_flux<Mesh<40, 40>>)
       .def("du_x_flux", &Discretization3::du_x_flux<Mesh<80, 80>>)
       .def("du_x_flux", &Discretization3::du_x_flux<Mesh<160, 160>>)
-      .def("du_x_flux", &Discretization3::du_x_flux<Mesh<1024, 1024>>)
 
       .def("du_y_flux", &Discretization3::du_y_flux<Mesh<10, 10>>)
       .def("du_y_flux", &Discretization3::du_y_flux<Mesh<20, 20>>)
       .def("du_y_flux", &Discretization3::du_y_flux<Mesh<40, 40>>)
       .def("du_y_flux", &Discretization3::du_y_flux<Mesh<80, 80>>)
       .def("du_y_flux", &Discretization3::du_y_flux<Mesh<160, 160>>)
-      .def("du_y_flux", &Discretization3::du_y_flux<Mesh<1024, 1024>>)
 
       .def("dv_x_flux", &Discretization3::dv_x_flux<Mesh<10, 10>>)
       .def("dv_x_flux", &Discretization3::dv_x_flux<Mesh<20, 20>>)
       .def("dv_x_flux", &Discretization3::dv_x_flux<Mesh<40, 40>>)
       .def("dv_x_flux", &Discretization3::dv_x_flux<Mesh<80, 80>>)
       .def("dv_x_flux", &Discretization3::dv_x_flux<Mesh<160, 160>>)
-      .def("dv_x_flux", &Discretization3::dv_x_flux<Mesh<1024, 1024>>)
 
       .def("dv_y_flux", &Discretization3::dv_y_flux<Mesh<10, 10>>)
       .def("dv_y_flux", &Discretization3::dv_y_flux<Mesh<20, 20>>)
       .def("dv_y_flux", &Discretization3::dv_y_flux<Mesh<40, 40>>)
       .def("dv_y_flux", &Discretization3::dv_y_flux<Mesh<80, 80>>)
-      .def("dv_y_flux", &Discretization3::dv_y_flux<Mesh<160, 160>>)
-      .def("dv_y_flux", &Discretization3::dv_y_flux<Mesh<1024, 1024>>);
+      .def("dv_y_flux", &Discretization3::dv_y_flux<Mesh<160, 160>>);
 
   using Assembly3 = INSAssembly<Discretization3>;
   py::class_<Assembly3, Discretization3>(module, "INSAssembly3")
@@ -589,40 +567,34 @@ PYBIND11_MODULE(ins_solver, module) {
       .def("flux_integral", &Assembly3::flux_integral<Mesh<40, 40>>)
       .def("flux_integral", &Assembly3::flux_integral<Mesh<80, 80>>)
       .def("flux_integral", &Assembly3::flux_integral<Mesh<160, 160>>)
-      .def("flux_integral", &Assembly3::flux_integral<Mesh<1024, 1024>>)
 
       .def("flux_assembly", &Assembly3::flux_assembly<Mesh<10, 10>>)
       .def("flux_assembly", &Assembly3::flux_assembly<Mesh<20, 20>>)
       .def("flux_assembly", &Assembly3::flux_assembly<Mesh<40, 40>>)
       .def("flux_assembly", &Assembly3::flux_assembly<Mesh<80, 80>>)
       .def("flux_assembly", &Assembly3::flux_assembly<Mesh<160, 160>>)
-      .def("flux_assembly", &Assembly3::flux_assembly<Mesh<1024, 1024>>)
 
       .def("jacobian_x_p1", &Assembly3::jacobian_x_p1<Mesh<10, 10>>)
       .def("jacobian_x_p1", &Assembly3::jacobian_x_p1<Mesh<20, 20>>)
       .def("jacobian_x_p1", &Assembly3::jacobian_x_p1<Mesh<40, 40>>)
       .def("jacobian_x_p1", &Assembly3::jacobian_x_p1<Mesh<80, 80>>)
       .def("jacobian_x_p1", &Assembly3::jacobian_x_p1<Mesh<160, 160>>)
-      .def("jacobian_x_p1", &Assembly3::jacobian_x_p1<Mesh<1024, 1024>>)
 
       .def("jacobian_x_0", &Assembly3::jacobian_x_0<Mesh<10, 10>>)
       .def("jacobian_x_0", &Assembly3::jacobian_x_0<Mesh<20, 20>>)
       .def("jacobian_x_0", &Assembly3::jacobian_x_0<Mesh<40, 40>>)
       .def("jacobian_x_0", &Assembly3::jacobian_x_0<Mesh<80, 80>>)
       .def("jacobian_x_0", &Assembly3::jacobian_x_0<Mesh<160, 160>>)
-      .def("jacobian_x_0", &Assembly3::jacobian_x_0<Mesh<1024, 1024>>)
 
       .def("jacobian_y_p1", &Assembly3::jacobian_y_p1<Mesh<10, 10>>)
       .def("jacobian_y_p1", &Assembly3::jacobian_y_p1<Mesh<20, 20>>)
       .def("jacobian_y_p1", &Assembly3::jacobian_y_p1<Mesh<40, 40>>)
       .def("jacobian_y_p1", &Assembly3::jacobian_y_p1<Mesh<80, 80>>)
       .def("jacobian_y_p1", &Assembly3::jacobian_y_p1<Mesh<160, 160>>)
-      .def("jacobian_y_p1", &Assembly3::jacobian_y_p1<Mesh<1024, 1024>>)
 
       .def("jacobian_y_0", &Assembly3::jacobian_y_0<Mesh<10, 10>>)
       .def("jacobian_y_0", &Assembly3::jacobian_y_0<Mesh<20, 20>>)
       .def("jacobian_y_0", &Assembly3::jacobian_y_0<Mesh<40, 40>>)
       .def("jacobian_y_0", &Assembly3::jacobian_y_0<Mesh<80, 80>>)
-      .def("jacobian_y_0", &Assembly3::jacobian_y_0<Mesh<160, 160>>)
-      .def("jacobian_y_0", &Assembly3::jacobian_y_0<Mesh<1024, 1024>>);
+      .def("jacobian_y_0", &Assembly3::jacobian_y_0<Mesh<160, 160>>);
 }
