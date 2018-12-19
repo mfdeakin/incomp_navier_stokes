@@ -301,12 +301,28 @@ PYBIND11_MODULE(ins_solver, module) {
   def_mesh<160, 160>(module);
   def_mesh<320, 320>(module);
 
+  def_mesh<10, 12>(module);
+  def_mesh<20, 24>(module);
+  def_mesh<40, 48>(module);
+  def_mesh<80, 96>(module);
+  def_mesh<160, 192>(module);
+  def_mesh<320, 384>(module);
+
+  def_mesh<10, 15>(module);
+  def_mesh<20, 30>(module);
+  def_mesh<40, 60>(module);
+  def_mesh<80, 120>(module);
+  def_mesh<160, 240>(module);
+  def_mesh<320, 480>(module);
+
   def_mesh<10, 20>(module);
   def_mesh<20, 40>(module);
   def_mesh<40, 80>(module);
   def_mesh<80, 160>(module);
   def_mesh<160, 320>(module);
   def_mesh<320, 640>(module);
+  def_mesh<640, 1280>(module);
+  def_mesh<1280, 2560>(module);
 
   def_mesh<10, 40>(module);
   def_mesh<20, 80>(module);
