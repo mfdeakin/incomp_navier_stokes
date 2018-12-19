@@ -4,14 +4,24 @@ from numpy import sum, log2, sqrt
 
 from ins_solver import Mesh_160x160, Mesh_80x80, Mesh_40x40, Mesh_20x20, Mesh_10x10
 from ins_solver import RK1_160x160, RK1_80x80, RK1_40x40, RK1_20x20, RK1_10x10
+from ins_solver import RK4_3_160x160, RK4_3_80x80, RK4_3_40x40, RK4_3_20x20, RK4_3_10x10
+from ins_solver import IE_160x160, IE_80x80, IE_40x40, IE_20x20, IE_10x10
+from ins_solver import IE_160x192, IE_80x96, IE_40x48, IE_20x24, IE_10x12
+from ins_solver import IE_160x240, IE_80x120, IE_40x60, IE_20x30, IE_10x15
+from ins_solver import IE_1280x2560, IE_640x1280, IE_320x640, IE_160x320, IE_80x160, IE_40x80, IE_20x40, IE_10x20
+from ins_solver import IE_160x640, IE_80x320, IE_40x160, IE_20x80, IE_10x40
 from ins_solver import to_np_array, x_y_coords
-from ins_solver import BConds_Part1
-from ins_solver import INSAssembly
+from ins_solver import BConds_Part1, BConds_Part3
+from ins_solver import INSAssembly1, INSAssembly3
 from ins_solver import Jacobian, triple
 
-from matplotlib.pyplot import figure, contour, show, clabel, title
+from matplotlib.pyplot import figure, contour, show, clabel, title, figaspect, savefig, close
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import cm
+from numpy import delete
+
+from os import mkdir
+from time import clock
 
 def plot_errs(MeshT, plot=True):
     m_zero = MeshT()
@@ -20,7 +30,7 @@ def plot_errs(MeshT, plot=True):
     m_fi_soln = MeshT()
 
     bc = BConds_Part1(P_0 = 1.0, u_0 = 1.0, v_0 = 1.0, beta = 1.0)
-    sd = INSAssembly(bc)
+    sd = INSAssembly1(bc)
 
     bc.init_mesh(m_init)
     sd.flux_assembly(m_zero, m_init, m_fi, 0.0, 1.0)
@@ -114,7 +124,7 @@ print("40 Convergence Rate Pressure: {} u: {} v: {}".format(log2(p_err_020 / p_e
                                                             log2(u_err_020 / u_err_040),
                                                             log2(v_err_020 / v_err_040)))
 print("80x80")
-p_err_080, u_err_080, v_err_080 = plot_errs(Mesh_80x80, True)
+p_err_080, u_err_080, v_err_080 = plot_errs(Mesh_80x80, False)
 print("80 Convergence Rate Pressure: {} u: {} v: {}".format(log2(p_err_040 / p_err_080),
                                                             log2(u_err_040 / u_err_080),
                                                             log2(v_err_040 / v_err_080)))
@@ -125,10 +135,11 @@ print("160 Convergence Rate Pressure: {} u: {} v: {}".format(log2(p_err_080 / p_
                                                              log2(v_err_080 / v_err_160)))
 
 def test_jacobian(MeshT):
-    bc = BConds_Part1(P_0 = 0.0, u_0 = 1.0, v_0 = 0.0, beta = 1.0, reynolds = 1.0)
-    sd = INSAssembly(bc)
+    bc = BConds_Part3(P_0 = 1.0, u_0 = 1.0, v_0 = 1.0,
+                      beta = 1.0, reynolds = 1.0, diffuse = 1.0)
+    sd = INSAssembly3(bc)
 
-    center = (MeshT.x_dim() // 2, MeshT.y_dim() // 2)
+    center = (MeshT.x_dim() // 2 - 2, MeshT.y_dim() // 2 + 3)
 
     m_orig = MeshT()
     bc.init_mesh(m_orig)
@@ -159,62 +170,148 @@ def test_jacobian(MeshT):
         # delta_U = ((j_f_U_m1_approx + j_f_U_approx + j_f_U_p1_approx)
         #            + (j_g_U_m1_approx + j_g_U_approx + j_g_U_p1_approx))
 
-        delta_U = ((sd.Dx_m1(m_orig, i, j, 0.0) * m_delta[i - 1, j] +
-                    sd.Dx_0(m_orig, i, j, 0.0) * m_delta[i, j] +
-                    sd.Dx_p1(m_orig, i, j, 0.0) * m_delta[i + 1, j]) +
-                   (sd.Dy_m1(m_orig, i, j, 0.0) * m_delta[i, j - 1] +
-                    sd.Dy_0(m_orig, i, j, 0.0) * m_delta[i, j] +
-                    sd.Dy_p1(m_orig, i, j, 0.0) * m_delta[i, j + 1]))
+        # Note that we need the negative to account for the flux integral returning
+        # the negative of the calculation
+        delta_U = -((sd.Dx_m1(m_orig, i, j, 0.0) * m_delta[i - 1, j] +
+                     sd.Dx_0(m_orig, i, j, 0.0) * m_delta[i, j] +
+                     sd.Dx_p1(m_orig, i, j, 0.0) * m_delta[i + 1, j]) +
+                    (sd.Dy_m1(m_orig, i, j, 0.0) * m_delta[i, j - 1] +
+                     sd.Dy_0(m_orig, i, j, 0.0) * m_delta[i, j] +
+                     sd.Dy_p1(m_orig, i, j, 0.0) * m_delta[i, j + 1]))
 
         orig_fi = sd.flux_integral(m_orig, i, j, 0.0)
         approx_t = orig_fi + delta_U
+
         err = sd.flux_integral(m_next, i, j, 0.0) - approx_t
         print("Linear Approximation Error at {}, {}:".format(i, j))
         print(err)
 
 test_jacobian(Mesh_20x20)
 
-show()
+#show()
 
-bc = BConds_Part1()
-ts = RK1_160x160(bc)
-print("Getting x, y, coordinates")
-x, y = x_y_coords(ts.mesh())
-print("Getting values")
-p, u, v = to_np_array(ts.mesh())
-m = Mesh_160x160(bc)
-p_e, u_e, v_e = to_np_array(m)
-print("P_0", bc.P_0())
-print("u_0", bc.u_0())
-print("v_0", bc.v_0())
-print("Beta", bc.beta())
-print("x_min", bc.x_min())
-print("x_max", bc.x_max())
-print("y_min", bc.y_min())
-print("y_max", bc.y_max())
-print("Computed", p)
-print("Expected", p_e)
-print("Error", p - p_e)
-assembly = ts.space_assembly()
-print(assembly)
-bc_ref = assembly.boundaries()
-print("P_0", bc_ref.P_0())
-print("u_0", bc_ref.u_0())
-print("v_0", bc_ref.v_0())
-print("Beta", bc_ref.beta())
-print("x_min", bc_ref.x_min())
-print("x_max", bc_ref.x_max())
-print("y_min", bc_ref.y_min())
-print("y_max", bc_ref.y_max())
-while ts.time() < 0.000025:
-    p, u, v = to_np_array(ts.mesh())
-    print(ts.time(), p)
-    fig = figure()
-    ax = fig.gca(projection="3d")
-    ax.plot_surface(x, y, p, cmap=cm.gist_heat)
-    ax.contour(x, y, p)
-    title("Part 1 RK1 Timestep at t={:.6}".format(ts.time()))
+def plot_mesh(mesh, name):
+    x, y = x_y_coords(mesh)
+    p, u, v = to_np_array(mesh)
+    fig = figure(figsize=figaspect(1.0 / 4.0))
+    ax1 = fig.add_subplot(1, 4, 1, projection='3d')
+    ax1.plot_surface(x, y, p, cmap=cm.gist_heat)
+    ax1.contour(x, y, p)
+    ax1.set_title("Pressure")
+    ax2 = fig.add_subplot(1, 4, 2, projection='3d')
+    ax2.plot_surface(x, y, u, cmap=cm.gist_heat)
+    ax2.contour(x, y, u)
+    ax2.set_title("u")
+    ax3 = fig.add_subplot(1, 4, 3, projection='3d')
+    ax3.plot_surface(x, y, v, cmap=cm.gist_heat)
+    ax3.contour(x, y, v)
+    ax3.set_title("v")
+    ax4 = fig.add_subplot(1, 4, 4)
+    x = delete(x, list(range(0, x.shape[0], 2)), axis=0)
+    y = delete(y, list(range(0, y.shape[0], 2)), axis=0)
+    u = delete(u, list(range(0, u.shape[0], 2)), axis=0)
+    v = delete(v, list(range(0, v.shape[0], 2)), axis=0)
+    x = delete(x, list(range(0, x.shape[0], 2)), axis=0)
+    y = delete(y, list(range(0, y.shape[0], 2)), axis=0)
+    u = delete(u, list(range(0, u.shape[0], 2)), axis=0)
+    v = delete(v, list(range(0, v.shape[0], 2)), axis=0)
+    x = delete(x, list(range(0, x.shape[0], 2)), axis=0)
+    y = delete(y, list(range(0, y.shape[0], 2)), axis=0)
+    u = delete(u, list(range(0, u.shape[0], 2)), axis=0)
+    v = delete(v, list(range(0, v.shape[0], 2)), axis=0)
 
-    ts.timestep(0.8)
+    x = delete(x, list(range(0, x.shape[1], 2)), axis=1)
+    y = delete(y, list(range(0, y.shape[1], 2)), axis=1)
+    u = delete(u, list(range(0, u.shape[1], 2)), axis=1)
+    v = delete(v, list(range(0, v.shape[1], 2)), axis=1)
+    x = delete(x, list(range(0, x.shape[1], 2)), axis=1)
+    y = delete(y, list(range(0, y.shape[1], 2)), axis=1)
+    u = delete(u, list(range(0, u.shape[1], 2)), axis=1)
+    v = delete(v, list(range(0, v.shape[1], 2)), axis=1)
+    x = delete(x, list(range(0, x.shape[1], 2)), axis=1)
+    y = delete(y, list(range(0, y.shape[1], 2)), axis=1)
+    u = delete(u, list(range(0, u.shape[1], 2)), axis=1)
+    v = delete(v, list(range(0, v.shape[1], 2)), axis=1)
+    ax4.quiver(x, y, u, v, scale=16.0, cmap=cm.gist_heat)
+    #ax4.streamplot(x=x[:, 0], y=y[0], u=u, v=v, cmap=cm.gist_heat)
+    ax4.set_title("velocity")
+    fig.suptitle(name)
+    return fig
+
+beta  = 0.125
+relax = 1.75
+diffuse = 0.0
+reynolds = 250.0
+y_1 = 2.0
+
+bc1 = BConds_Part3(wall_vel = 1.0, beta = beta, reynolds = reynolds,
+                   relax = relax, diffuse = diffuse, y_max = y_1)
+bcm1 = BConds_Part3(wall_vel = -1.0, beta = beta, reynolds = reynolds,
+                    relax = relax, diffuse = diffuse, y_max = y_1)
+ie_1_ts = IE_80x160(bc1)
+ie_m1_ts = IE_80x160(bcm1)
+#ie_ts = RK4_3_10x10(bc)
+
+def figfile(ts):
+    dirname = ("../report"
+               + "/h{}_80x160_u1_re{}_beta{}_relax{}_diffuse{}".format(int(y_1), int(reynolds),
+                                                                      beta, relax, diffuse)
+               .replace(".", "_"))
+    return dirname + "/t{}.png".format(ts)
+
+accum_delta = 0.0
+prev_delta = float('inf')
+i = 0
+
+start_t = clock()
+
+while prev_delta > 1e-12:
+    prev_delta = ie_1_ts.timestep(0.05)
+    #ie_m1_ts.timestep(0.05)
+    accum_delta += prev_delta
+    i += 1
+    if accum_delta > 0.25:
+        name = "Part 3 IE Timestep at t={:.6}".format(ie_1_ts.time())
+        f = plot_mesh(ie_1_ts.mesh(), name + ", u=1.0")
+        savefig(figfile(i), dpi=800)
+        close(f)
+        #plot_mesh(ie_m1_ts.mesh(), name + ", u=-1.0")
+        print(name)
+        accum_delta = 0.0
+    print(i, accum_delta)
+
+tot_t = clock() - start_t
+
+print("Total running time for {} iterations to converge: {}".format(i, tot_t))
+
+name = "Part 3 IE Timestep at t={:.6}".format(ie_1_ts.time())
+plot_mesh(ie_1_ts.mesh(), name + " u=1.0")
+savefig(figfile(i), dpi=800)
+#plot_mesh(ie_m1_ts.mesh(), name + " u=-1.0")
+print(name)
+print(i, accum_delta)
+
+x, y = x_y_coords(ie_1_ts.mesh())
+_, u_1, v_1 = to_np_array(ie_1_ts.mesh())
+_, u_m1_r, v_m1_r = to_np_array(ie_m1_ts.mesh())
+
+u_m1 = u_m1_r[::-1, :]
+v_m1 = v_m1_r[::-1, :]
+
+fig = figure(figsize=figaspect(1.0 / 3.0))
+ax1 = fig.add_subplot(1, 3, 1, projection="3d")
+ax1.plot_surface(x, y, u_1, cmap=cm.gist_heat)
+ax2 = fig.add_subplot(1, 3, 2, projection="3d")
+ax2.plot_surface(x, y, u_m1, cmap=cm.gist_heat)
+ax3 = fig.add_subplot(1, 3, 3, projection="3d")
+ax3.plot_surface(x, y, u_1 + u_m1, cmap=cm.gist_heat)
+
+fig = figure(figsize=figaspect(1.0 / 3.0))
+ax1 = fig.add_subplot(1, 3, 1, projection="3d")
+ax1.plot_surface(x, y, v_1, cmap=cm.gist_heat)
+ax2 = fig.add_subplot(1, 3, 2, projection="3d")
+ax2.plot_surface(x, y, v_m1, cmap=cm.gist_heat)
+ax3 = fig.add_subplot(1, 3, 3, projection="3d")
+ax3.plot_surface(x, y, v_1 - v_m1, cmap=cm.gist_heat)
 
 show()
