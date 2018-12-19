@@ -27,7 +27,7 @@ To run this code, I exported a Python interface with Pybind11.
 Because it's not trivial, a script to install Pybind11 on Ubuntu can be found in the
 .travis.yml file in the root directory.
 The scripts used to generate the figures in this report are in the ``scripts'' directory,
-they need to be run from the same directory as the ``ins_solver'' Python module library;
+they need to be run from the same directory as the ``ins\_solver'' Python module library;
 CMake was configured to copy them to the build directory upon modification to simplify this.
 Note that when running them you also need to make certain to use the same Python version
 as the module was built for, which likely means changing the shell command at the start of the files.
@@ -69,7 +69,7 @@ Two steps were taken to ensure that the necessary components were implemented co
   }
 \end{table}
 
-\begin{table}[h]
+\begin{table}[ht]
   \begin{tabular}{|c|c|c|c|}
     \hline
     Center Offset & Pressure Error & U Velocity Error & V Velocity Error\\
