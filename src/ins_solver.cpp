@@ -27,8 +27,8 @@ py::class_<Mesh<ctrl_x, ctrl_y>> def_mesh(py::module &module) {
       .def(py::init<real, real, real, real>(), py::arg("x_min") = 0.0,
            py::arg("x_max") = 1.0, py::arg("y_min") = 0.0,
            py::arg("y_max") = 1.0)
-      .def("y_dim", &MeshT::x_dim)
-      .def("x_dim", &MeshT::y_dim)
+      .def("x_dim", &MeshT::x_dim)
+      .def("y_dim", &MeshT::y_dim)
       .def("dx", &MeshT::dx)
       .def("dy", &MeshT::dy)
       .def("x_median", &MeshT::x_median)
@@ -188,6 +188,7 @@ std::pair<py::class_<triple>, py::class_<Jacobian>> def_multivar(
              return t;
            },
            py::arg("i"), py::arg("v"))
+      .def("l2_norm", &triple::l2_norm)
       .def(-py::self)
       .def(py::self + py::self)
       .def(py::self += py::self)
