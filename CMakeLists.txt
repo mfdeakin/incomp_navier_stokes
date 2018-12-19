@@ -18,4 +18,6 @@ if (${PYTHON_INTERFACE})
   target_link_libraries(plot_ts pybind11::embed)
 
   configure_file(./scripts/part1.py part1.py COPYONLY)
+  configure_file(./scripts/part3.py part3.py COPYONLY)
+  configure_file(./scripts/part4.py part4.py COPYONLY)
 endif()
