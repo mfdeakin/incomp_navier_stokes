@@ -95,14 +95,18 @@ class [[nodiscard]] INSAssembly : public _SpaceDisc {
   }
 
   template <typename MeshT>
-  real flux_assembly(const MeshT &initial, const MeshT &current, MeshT &next,
-                     const real time, const real dt) const noexcept {
-    real max_delta = 0.0;
+  triple flux_assembly(const MeshT &initial, const MeshT &current, MeshT &next,
+                       const real time, const real dt) const noexcept {
+    real max_delta_l2 = 0.0;
+    triple max_delta{0.0, 0.0, 0.0};
     for(int i = 0; i < initial.x_dim(); i++) {
       for(int j = 0; j < initial.y_dim(); j++) {
         const triple fi = flux_integral(current, i, j, time);
+        if(max_delta_l2 < fi.l2_norm()) {
+          max_delta_l2 = fi.l2_norm();
+          max_delta    = fi;
+        }
         const auto &[p_flux, u_flux, v_flux] = fi;
-        max_delta        = std::max(max_delta, fi.l2_norm());
         next.press(i, j) = initial.press(i, j) + dt * p_flux;
         next.u_vel(i, j) = initial.u_vel(i, j) + dt * u_flux;
         next.v_vel(i, j) = initial.v_vel(i, j) + dt * v_flux;

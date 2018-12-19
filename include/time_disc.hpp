@@ -81,7 +81,7 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceDisc> {
         _sol_dy(std::make_unique<SolVecY>()),
         _intermediate(std::make_unique<XYIntermediate>()) {}
 
-  real timestep(const real dt) {
+  triple timestep(const real dt) {
     const MeshT &mesh                   = this->mesh();
     const SpaceAssembly &space_assembly = this->space_assembly();
     // First we need to construct our vector to use with the Thomas algorithm
@@ -202,7 +202,8 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceDisc> {
       }
     }
 
-    real max_change = 0.0;
+    real max_delta_l2 = 0.0;
+    triple max_delta{0.0, 0.0, 0.0};
 
     // sol now contains our dP, du, and dv terms
     // So just add it to our P, u, and v terms
@@ -211,8 +212,12 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceDisc> {
     const XYIntermediate &inter = *_intermediate;
     for(int i = 0; i < MeshT::x_dim(); i++) {
       for(int j = 0; j < MeshT::y_dim(); j++) {
-        max_change = std::max(
-            max_change, this->boundaries().relax() * inter(i, j).l2_norm());
+        const real delta_l2 =
+            this->boundaries().relax() * inter(i, j).l2_norm();
+        if(max_delta_l2 < delta_l2) {
+          max_delta_l2 = delta_l2;
+          max_delta    = inter(i, j);
+        }
         this->_cur_mesh->press(i, j) +=
             inter(i, j)(0) * this->boundaries().relax();
         this->_cur_mesh->u_vel(i, j) +=
@@ -223,7 +228,7 @@ class ImplicitEuler_Solver : public Base_Solver<_Mesh, _SpaceDisc> {
     }
 
     this->_time += dt;
-    return max_change;
+    return max_delta;
   }
 
  private:
@@ -247,7 +252,7 @@ class RK1_Solver : public Base_Solver<_Mesh, _SpaceDisc> {
   constexpr RK1_Solver(const BConds &boundaries) noexcept
       : Base(boundaries), _partial_mesh(std::make_unique<MeshT>(boundaries)) {}
 
-  real timestep(const real sigma_ratio) {
+  triple timestep(const real sigma_ratio) {
     MeshT &mesh = this->mesh();
     // |sigma| = |1 + \lambda \Delta t|
     // Approximate \lambda with just the second derivative term,
@@ -258,7 +263,7 @@ class RK1_Solver : public Base_Solver<_Mesh, _SpaceDisc> {
     const real dt = sigma_ratio * mesh.dx() * mesh.dx() *
                     this->boundaries().reynolds() * prandtl / 4.0;
 
-    const real max_delta = this->_space_assembly.flux_assembly(
+    const triple max_delta = this->_space_assembly.flux_assembly(
         *(this->_cur_mesh), *(this->_cur_mesh), *_partial_mesh, this->time(),
         dt);
 
@@ -286,7 +291,7 @@ class RK4_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
         _partial_mesh_1(std::make_unique<MeshT>(boundaries)),
         _partial_mesh_2(std::make_unique<MeshT>(boundaries)) {}
 
-  real timestep(const real sigma_ratio) {
+  triple timestep(const real sigma_ratio) {
     MeshT &mesh = this->mesh();
     // Approximate the amplification factor as
     // 4^3 (\Delta t / \Delta x^2)^4 / (6 * Re * Pr) = sigma_mag
@@ -317,11 +322,15 @@ class RK4_Solver : public Base_Solver<_Mesh, _SpaceAssembly> {
     this->_space_assembly.flux_assembly(
         mesh, *_partial_mesh_1, *_partial_mesh_2, this->time() + dt / 2.0, dt);
 
-    real max_delta = 0.0;
+    real max_delta_l2 = 0.0;
+    triple max_delta{0.0, 0.0, 0.0};
     for(int i = 0; i < mesh.x_dim(); i++) {
       for(int j = 0; j < mesh.y_dim(); j++) {
         const triple delta = (*_partial_mesh_2)(i, j) - mesh(i, j);
-        max_delta          = std::max(max_delta, delta.l2_norm());
+        if(max_delta_l2 < delta.l2_norm()) {
+          max_delta    = delta;
+          max_delta_l2 = delta.l2_norm();
+        }
       }
     }
 
